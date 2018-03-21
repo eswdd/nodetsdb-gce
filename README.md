@@ -20,17 +20,17 @@ Or with options:
 
 ## License
 
-Faketsdb is freely distributable under the terms of the [GPL license](https://github.com/eswdd/faketsdb/blob/master/LICENSE).
+nodetsdb-gce is freely distributable under the terms of the [GPL license](https://github.com/eswdd/nodetsdb-gce/blob/master/LICENSE).
 
 [license-image]: http://img.shields.io/badge/license-GPL-blue.svg?style=flat
 [license-url]: LICENSE
 
-[npm-url]: https://npmjs.org/package/faketsdb
-[npm-version-image]: http://img.shields.io/npm/v/faketsdb.svg?style=flat
-[npm-downloads-image]: http://img.shields.io/npm/dm/faketsdb.svg?style=flat
+[npm-url]: https://npmjs.org/package/nodetsdb-gce
+[npm-version-image]: http://img.shields.io/npm/v/nodetsdb-gce.svg?style=flat
+[npm-downloads-image]: http://img.shields.io/npm/dm/nodetsdb-gce.svg?style=flat
 
-[travis-url]: http://travis-ci.org/eswdd/faketsdb
-[travis-image]: http://img.shields.io/travis/eswdd/faketsdb/master.svg?style=flat
+[travis-url]: http://travis-ci.org/eswdd/nodetsdb-gce
+[travis-image]: http://img.shields.io/travis/eswdd/nodetsdb-gce/master.svg?style=flat
 
-[coverage-url]: https://coveralls.io/r/eswdd/faketsdb
-[coverage-image]: https://coveralls.io/repos/github/eswdd/faketsdb/badge.svg
+[coverage-url]: https://coveralls.io/r/eswdd/nodetsdb-gce
+[coverage-image]: https://coveralls.io/repos/github/eswdd/nodetsdb-gce/badge.svg
