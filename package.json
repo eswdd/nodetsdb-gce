@@ -26,6 +26,7 @@
     "test-coverage": "istanbul cover ./node_modules/mocha/bin/_mocha -- -R spec test/*"
   },
   "dependencies": {
+    "@google-cloud/datastore": "^1.4.0",
     "express": "^4.16.2",
     "nodetsdb-api": "^0.0.1"
   },
