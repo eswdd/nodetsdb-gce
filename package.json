@@ -28,7 +28,7 @@
   "dependencies": {
     "@google-cloud/datastore": "^1.4.0",
     "express": "^4.16.2",
-    "nodetsdb-api": "^0.0.1"
+    "nodetsdb-api": "^0.1.0"
   },
   "main": "index.js"
 }
