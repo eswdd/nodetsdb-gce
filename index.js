@@ -78,7 +78,6 @@ var multiUidMetaFrom = function (type, identifiers, callback) {
     });
 };
 
-// on backend api
 var uidMetaFromName = function(type, name, callback) {
     uidMetaFrom(type, "name:"+name, callback);
 };
@@ -185,14 +184,13 @@ var assignUidIfNecessary = function(type, name, callback) {
     });
 };
 
-// on backend api
-backend.suggestMetrics = function(prefix, max, callback) {
+var suggest = function(entity, prefix, max, callback) {
     if (!prefix) {
         prefix = "";
     }
     var query = datastore
-        .createQuery("metric_uid")
-        .filter("__key__", ">", datastore.key(["metric_uid", "name:"+prefix]))
+        .createQuery(entity)
+        .filter("__key__", ">", datastore.key([entity, "name:"+prefix]))
         .order("__key__");
 
     if (max) {
@@ -207,7 +205,7 @@ backend.suggestMetrics = function(prefix, max, callback) {
             else {
                 if (entities.length > 0) {
                     // entities found
-                    const uids = entities[0];
+                    var uids = entities[0];
 
                     var ret = uids.map(function (uid) {
                         return uid.name;
@@ -222,13 +220,18 @@ backend.suggestMetrics = function(prefix, max, callback) {
 };
 
 // on backend api
+backend.suggestMetrics = function(prefix, max, callback) {
+    suggest("metric_uid", prefix, max, callback);
+};
+
+// on backend api
 backend.suggestTagKeys = function(prefix, max, callback) {
-    callback([]); // todo
+    suggest("tagk_uid", prefix, max, callback);
 };
 
 // on backend api
 backend.suggestTagValues = function(prefix, max, callback) {
-    callback([]); // todo
+    suggest("tagv_uid", prefix, max, callback);
 };
 
 var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
