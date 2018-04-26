@@ -26,6 +26,8 @@ before_script:
   # Install the emulator
   - sudo apt-get install google-cloud-sdk-datastore-emulator
   # Start the datastore emulator
-  - gcloud beta emulators datastore start --no-store-on-disk &
+  - gcloud beta emulators datastore start --no-store-on-disk --host-port localhost:8081 &
+  # Make sure we can find it..
+  - export DATASTORE_EMULATOR_HOST=localhost:8081
 script: "npm run-script test-coverage"
 after_script: "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js"
