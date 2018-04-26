@@ -23,7 +23,9 @@ before_script:
   - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
   # Update the package list and install the Cloud SDK
   - sudo apt-get update && sudo apt-get install google-cloud-sdk
+  # Install the emulator
+  - sudo apt-get install google-cloud-sdk-datastore-emulator
   # Start the datastore emulator
-  - gcloud beta emulators datastore start --no-store-on-disk
+  - gcloud beta emulators datastore start --no-store-on-disk &
 script: "npm run-script test-coverage"
 after_script: "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js"
