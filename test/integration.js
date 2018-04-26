@@ -100,7 +100,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
                     ])
                     .end(function () {
                         request(server)
-                            .get('/api/suggest?q=')
+                            .get('/api/suggest?type=metrics&q=')
                             .expect('Content-Type', /json/)
                             .expect(200, ["cpu.percent"])
                             .end(done);
@@ -194,7 +194,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
                     ])
                     .end(function () {
                         request(server)
-                            .get('/api/suggest?q=disk')
+                            .get('/api/suggest?type=metrics&q=disk')
                             .expect('Content-Type', /json/)
                             .expect(200, ["disk.used.bytes"])
                             .end(done);
