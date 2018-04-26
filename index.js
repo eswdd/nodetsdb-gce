@@ -1,21 +1,10 @@
 var express = require('express');
-const api = require('nodetsdb-api');
-require('seedrandom');
-// Imports the Google Cloud client library
-const Datastore = require('@google-cloud/datastore');
-// Your Google Cloud Platform project ID
-const projectId = 'opentsdb-cloud';
-
-// Creates a client
-const datastore = new Datastore({
-    projectId: projectId
-});
-
-var log = console;
-
+var api = require('nodetsdb-api');
+var Datastore = require('@google-cloud/datastore');
+// actual datastore
+var datastore;
 
 var config = {
-    
 };
 
 var backend = {};
@@ -27,7 +16,7 @@ var lpad = function (input, char, length) {
     return input;
 }
 
-var uidMetaFrom = function (type, identifier, callback) {
+var uidKind = function(type, callback) {
     var kind;
     switch (type) {
         case "metric": kind = "metric_uid"; break;
@@ -37,44 +26,58 @@ var uidMetaFrom = function (type, identifier, callback) {
             callback(null, 'Unsupported type: '+type);
             return;
     }
+    callback(kind);
+}
 
-    datastore.get(datastore.key([kind, identifier]), function(err, entity) {
+var uidMetaFrom = function (type, identifier, callback) {
+    uidKind(type, function(kind, err) {
         if (err) {
             callback(null, err);
+            return;
         }
-        else {
-            callback(entity, null);
-        }
+
+        datastore.get(datastore.key([kind, identifier]), function(err, entity) {
+            if (err) {
+                callback(null, err);
+            }
+            else {
+                callback(entity, null);
+            }
+        });
     });
+
 };
 
+
+
 var multiUidMetaFrom = function (type, identifiers, callback) {
-    var kind;
-    switch (type) {
-        case "metric": kind = "metric_uid"; break;
-        case "tagk": kind = "tagk_uid"; break;
-        case "tagv": kind = "tagv_uid"; break;
-        default:
-            callback(null, 'Unsupported type: '+type);
-            return;
-    }
-
-    if (identifiers.length === 0) {
-        callback([]);
-    }
-
-    var dsIdentifiers = identifiers.map(function(identifier){return datastore.key([kind, identifier]);});
-    datastore.get(dsIdentifiers, function(err, entities) {
+    uidKind(type, function(kind, err) {
         if (err) {
             callback(null, err);
+            return;
         }
-        else {
-            var ret = {};
-            for (var i=0; i<identifiers.length; i++) {
-                ret[identifiers[i]] = entities[i];
+
+        if (identifiers.length === 0) {
+            callback([]);
+        }
+
+        var dsIdentifiers = identifiers.map(function(identifier){return datastore.key([kind, identifier]);});
+        datastore.get(dsIdentifiers, function(err, entities) {
+            if (err) {
+                callback(null, err);
             }
-            callback(ret, null);
-        }
+            else {
+                var ret = {};
+                var foundANull = false;
+                for (var i=0; i<identifiers.length; i++) {
+                    ret[identifiers[i]] = entities[i];
+                    if (entities[i] === undefined) {
+                        foundANull = true;
+                    }
+                }
+                callback(ret, foundANull ? "At least one lookup failed" : null);
+            }
+        });
     });
 };
 
@@ -96,6 +99,7 @@ var multiUidMetaFromUid = function(type, uids, callback) {
             var newMap = {};
             for (var k in metas) {
                 if (metas.hasOwnProperty(k)) {
+                    // strip "id:" prefix
                     newMap[k.substring(3)] = metas[k];
                 }
             }
@@ -105,80 +109,113 @@ var multiUidMetaFromUid = function(type, uids, callback) {
     multiUidMetaFrom(type, uids.map(function(uid) { return "id:"+uid; }), cb);
 };
 
-var assignUidIfNecessary = function(type, name, callback) {
-    // console.log("assignUidIfNecessary: "+type+", "+name);
-    var kind;
-    switch (type) {
-        case "metric": kind = "metric_uid"; break;
-        case "tagk": kind = "tagk_uid"; break;
-        case "tagv": kind = "tagv_uid"; break;
-        default:
-            callback(null, 'Unsupported type: '+type);
-            return;
-    }
+var nextUid = function(txn, kind, callback) {
+    var uidSequenceKey = datastore.key(["uid_sequence", "kind:"+kind]);
 
-    var txn = datastore.transaction();
-
-    txn.run(function (err) {
-        // console.log("assignUidIfNecessary: in txn.run()")
-
+    txn.get(uidSequenceKey, function(err, entity) {
         if (err) {
-            callback(null, 'Error creating transaction: '+ err);
+            // console.log("callback: 1");
+            callback(null, "Error loading data entity: " + err);
             return;
         }
 
-        var allDone = false;
-        const byNameKey = datastore.key([kind, "name:"+name]);
+        var data;
+        if (entity === undefined) {
+            // create it
+            entity = {
+                key: uidSequenceKey,
+                data: {
+                    nextUid: 1
+                }
+            };
+            data = entity.data;
+        }
+        else {
+            data = entity;
+            entity = {
+                key: uidSequenceKey,
+                data: data
+            };
+        }
 
-        txn.get(byNameKey, function(err, entity) {
+        var uid = data.nextUid;
+        data.nextUid++;
+
+        txn.save(entity);
+
+        callback(uid);
+    });
+};
+
+var assignUidIfNecessary = function(type, name, callback) {
+    uidKind(type, function(kind, err) {
+        if (err) {
+            callback(null, err);
+            return;
+        }
+
+        var txn = datastore.transaction();
+
+        txn.run(function (err) {
+
             if (err) {
-                // console.log("callback: 1");
-                callback(null, "Error loading data entity: "+ err);
-                allDone = true;
-            }
-            else if (entity !== undefined) {
-                // console.log("callback: 2");
-                callback(entity.uid);
-                allDone = true;
-            }
-
-
-            if (allDone) {
-                // console.log("callback: allDone");
+                callback(null, 'Error creating transaction: '+ err);
                 return;
             }
 
-            var nextUid = 1; // todo: get this from db
-            var uidString = lpad(nextUid.toString(16), '0', 6);
-            const byIdKey = datastore.key([kind, "id:"+uidString]);
+            var byNameKey = datastore.key([kind, "name:"+name]);
 
-            const byNameEntity = {
-                key: byNameKey,
-                data: {
-                    uid: uidString,
-                    name: name
-                }
-            };
-            const byIdEntity = {
-                key: byIdKey,
-                data: {
-                    uid: uidString,
-                    name: name
-                }
-            };
-
-            txn.save(byNameEntity);
-            txn.save(byIdEntity);
-
-            txn.commit(function (err) {
+            txn.get(byNameKey, function(err, entity) {
                 if (err) {
-                    // console.log("callback: 3");
-                    callback(null, 'failed to assign uid', err);
+                    // console.log("callback: 1");
+                    callback(null, "Error loading data entity: "+ err);
+                    return;
                 }
-                else {
-                    // console.log("callback: 4");
-                    callback(uidString);
+                else if (entity !== undefined) {
+                    // console.log("callback: 2");
+                    callback(entity.uid);
+                    return;
                 }
+
+                nextUid(txn, kind, function(uid, err) {
+                    if (err) {
+                        // console.log("callback: 3");
+                        callback(null, 'failed to assign uid: '+ err);
+                        return;
+                    }
+
+                    var uidString = lpad(uid.toString(16), '0', config[type+"_uid_bytes"]*2);
+                    var byIdKey = datastore.key([kind, "id:"+uidString]);
+
+                    var byNameEntity = {
+                        key: byNameKey,
+                        data: {
+                            uid: uidString,
+                            name: name
+                        }
+                    };
+                    var byIdEntity = {
+                        key: byIdKey,
+                        data: {
+                            uid: uidString,
+                            name: name
+                        }
+                    };
+
+                    txn.save(byNameEntity);
+                    txn.save(byIdEntity);
+
+                    txn.commit(function (err) {
+                        if (err) {
+                            // console.log("callback: 3");
+                            callback(null, 'failed to assign uid: '+ err);
+                        }
+                        else {
+                            // console.log("callback: 4");
+                            callback(uidString);
+                        }
+                    });
+                });
             });
         });
     });
@@ -235,8 +272,9 @@ backend.suggestTagValues = function(prefix, max, callback) {
 };
 
 var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
+    console.log("withMetricAndTagUids(txn, \""+metric+"\", "+JSON.stringify(incomingTags)+", callback)");
     var metricUidCallback = function(metricUid, err) {
-        // console.log("metricUidCallback: "+metricUid);
+        console.log("metricUidCallback: "+metricUid);
         if (err) {
             callback(null, null, null, err);
         }
@@ -261,12 +299,11 @@ var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
                     var tagvCallback = function (tagk_uid, tagv_uid, err) {
                         if (err) {
                             hadError = true;
-                            callack(null, null, err);
+                            callback(null, null, err);
                         }
                         else {
                             tagkUids.push(tagk_uid);
                             tags[tagk_uid] = tagv_uid;
-                            t++;
                             if (!hadError) {
                                 processNextTag(t + 1);
                             }
@@ -275,7 +312,7 @@ var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
                     var tagkCallback = function (tagk_uid, err) {
                         if (err) {
                             hadError = true;
-                            callack(null, null, err);
+                            callback(null, null, err);
                         }
                         else {
                             assignUidIfNecessary("tagv", tagv, function(tagv_uid, err) {
@@ -307,15 +344,22 @@ var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
     assignUidIfNecessary("metric", metric, metricUidCallback);
 };
 
+var dataRowKey = function(metricUid, hour, tagUidString) {
+    var hString = lpad(hour.toString(16), ' ', 4);
+    var rowKey = metricUid + hString + tagUidString;
+    return rowKey;
+}
+
 // on backend api
 backend.storePoints = function(points, storePointsCallback) {
+    //console.log("storePoints("+JSON.stringify(points)+")");
     // start simple, process in series, single transaction for each, read entity for timeseries/hour, update entity, write down
     var errors = new Array(points.length);
     if (points.length === 0) {
         storePointsCallback([]);
     }
     var f = function(pointIndex) {
-        // console.log("f: "+pointIndex);
+        console.log("f: "+pointIndex);
         var errorMessage = undefined;
         var point = points[pointIndex];
         if (pointIndex >= points.length) {
@@ -336,7 +380,7 @@ backend.storePoints = function(points, storePointsCallback) {
             else {
                 var timestamp = point.timestamp;
                 var ms = timestamp > 10000000000;
-                var hour = Math.floor(ms ? timestamp / 86400000 : timestamp / 86400);
+                var hour = Math.floor(ms ? timestamp / 86400000 : timestamp / 86400)
                 // force offset to ms
                 var offsetFromHour = ms ? timestamp % 86400000 : (timestamp % 86400) * 1000;
 
@@ -346,7 +390,7 @@ backend.storePoints = function(points, storePointsCallback) {
                         return;
                     }
                     else {
-                        var rowId = metricUid + hour + tagUidString;
+                        var rowId = dataRowKey(metricUid, hour, tagUidString);
                     }
                     var rowKey = datastore.key(["data", rowId]);
                     var row = undefined;
@@ -419,13 +463,179 @@ backend.searchLookupImpl = function(metric, limit, useMeta, callback) {
 };
 
 // on backend api
-backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback) {
-    callback([]); // not supported yet
+backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
+    // start simple, process in series, single transaction for each, read entity for timeseries/hour, update entity, write down
+    var errors = new Array(annotations.length);
+    if (points.length === 0) {
+        storeAnnotationsCallback([]);
+    }
+    var f = function(annotationIndex) {
+        // console.log("f: "+pointIndex);
+        var errorMessage = undefined;
+        var point = annotations[annotationIndex];
+        if (annotationIndex >= annotations.length) {
+            throw "wat"
+        }
+        var txn = datastore.transaction();
+        txn.run(function (err) {
+            if (err) {
+                errors[annotationIndex] = err;
+                if (annotationIndex >= annotations.length - 1) {
+                    // console.log(pointIndex+": Sending response: " + JSON.stringify(errors));
+                    storeAnnotationsCallback(errors);
+                }
+                else {
+                    f(annotationIndex + 1);
+                }
+            }
+            else {
+                var timestamp = annotations[annotationIndex].startTime;
+                var ms = timestamp > 10000000000;
+                var hour = Math.floor(ms ? timestamp / 86400000 : timestamp / 86400);
+                // force offset to ms
+                var offsetFromHour = ms ? timestamp % 86400000 : (timestamp % 86400) * 1000;
+
+                var tsuid = annotations[annotationIndex].tsuid;
+                var metricUid = "", tagUidString = "", tagUidArray = [];
+                if (tsuid) {
+                    metricUid = tsuid.substring(0, config.metric_uid_bytes*2);
+                    tagUidString = tsuid.substring(metric_uid.length + 4);
+                    for (var i=0; i<tagUidString.length; i+=(config.tagk_uid_bytes+config.tagv_uid_bytes)*2) {
+
+                    }
+                }
+                var metric_uid = tsuid ? tsuid.substring(0, config.metric_uid_bytes*2) : "";
+                var tagUidString = tsuid ? tsuid.substring(metric_uid.length + 4) : "";
+                var tagUidArray = [];
+
+                var rowId = metricUid + hour + tagUidString;
+                var rowKey = datastore.key(["data", rowId]);
+                var row = undefined;
+
+                var processCommitResult = function(err) {
+                    if (err) {
+                        errorMessage = "Error saving entity: " + err;
+                    }
+                    errors[annotationIndex] = errorMessage;
+                    if (annotationIndex >= points.length - 1) {
+                        // console.log(pointIndex+": Sending response: " + JSON.stringify(errors));
+                        storeAnnotationsCallback(errors);
+                    }
+                    else {
+                        f(annotationIndex + 1);
+                    }
+                };
+
+                txn.get(rowKey, function (err, entity, info) {
+                    if (err) {
+                        processCommitResult("Error loading data entity: " + err);
+                        return;
+                    }
+                    row = entity;
+
+                    //console.log("New data row? "+(row === undefined));
+                    var data;
+                    if (row === undefined) {
+                        // create it
+                        row = {
+                            key: rowKey,
+                            data: {
+                                tags: tagUidArray
+                            }
+                        };
+                        data = row.data;
+                    }
+                    else {
+                        data = row;
+                        row = {
+                            key: rowKey,
+                            data: data
+                        };
+
+                    }
+
+                    data[offsetFromHour.toString()] = annotations[annotationIndex];
+
+                    txn.save(row);
+
+                    try {
+                        txn.commit(processCommitResult);
+                    }
+                    catch (err) {
+                        // console.log("ERR in commit");
+                        processCommitResult(err);
+                    }
+                });
+            }
+        });
+    };
+    f(0);
 };
 
 // on backend api
+backend.deleteAnnotation = function(annotation, callback) {
+    callback(null); // todo
+};
+
+// on backend api
+backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback) {
+    // first we can map the time series to a set of row keys for possible annotations
+    var startHour = Math.floor(startTime.getTime() / 86400000);
+    var startOffset = startTime.getTime() % 86400000;
+    var endHour = Math.floor(endTime.getTime() / 86400000);
+    var endOffset = endTime.getTime() % 86400000;
+
+    callback([]);
+    /*
+        var allKeys = [];
+        var allKeyHours = [];
+        for (var t=0; t<participatingTimeSeries.length; t++) {
+            for (var h=startHour; h<=endHour; h++) {
+                var metricUid = participatingTimeSeries[t].metric_uid;
+                var keyId = dataRowKey(metricUid, h, articipatingTimeSeries[t].tsuid.substring(metricUid.length));
+                var key = datastore.key(["annotation", keyId]);
+                allKeyHours.push(h);
+                allKeys.push(key);
+            }
+        }
+
+        datastore.get(allKeys, function(err, entities) {
+            if (err) {
+                callback(null, err);
+            }
+            else {
+                var ret = [];
+                for (var i=0; i<allKeys.length; i++) {
+                    var h = allKeyHours[i];
+                    var entity = entities[i];
+                    // entity is raw data
+
+                }
+                callback(ret, null);
+            }
+        });*/
+
+
+};
+
+/*
+data is Array of {
+ *                     tsuid:String,
+ *                     description:String,
+ *                     notes:String,
+ *                     custom:Map,
+ *                     startTime:Date,
+ *                     endTime:Date
+ *                   }
+ */
+
+// on backend api
 backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback) {
-    callback([]); // not supported yet
+    callback([]); // todo - not supported yet
+};
+
+var loadData = function(startTime, endTime, keyFn, metricUidString, tagUidsString, callback) {
+
 };
 
 // on backend api
@@ -472,8 +682,8 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                     }
                 }
 
-                var startKey = datastore.key(["data", metricUid.uid+h]);
-                var endKey = datastore.key(["data", metricUid.uid+(h+1)]);
+                var startKey = datastore.key(["data", dataRowKey(metricUid.uid, h, "")]);
+                var endKey = datastore.key(["data", dataRowKey(metricUid.uid, h+1, "")]);
                 console.log("Finding data rows where "+JSON.stringify(startKey)+" <= __key__ <= "+JSON.stringify(endKey));
 
                 var runQuery = function(cursor) {
@@ -499,10 +709,7 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                             else {
                                 if (entities.length > 0) {
                                     // entities found
-                                    var rawRows = entities[0];
-                                    if (!(rawRows instanceof Array)) {
-                                        rawRows = [rawRows];
-                                    }
+                                    var rawRows = entities;
                                     console.log("Found "+rawRows.length+" raw rows");
 
                                     // todo: filter the data!
@@ -614,7 +821,12 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                                     var k_uid = rows[r].tags[t];
                                     var v_uid = rows[r].tags[t+1];
                                     var k = tagkMetas[k_uid].name;
-                                    tags[k] = tagvMetas[v_uid].name;
+                                    tags[k] = {
+                                        tagk: k,
+                                        tagk_uid: k_uid,
+                                        tagv: tagvMetas[v_uid].name,
+                                        tagv_uid: v_uid
+                                    };
                                 }
                                 currentTags = tags;
                                 lastUidString = rows[r].tag_uids;
@@ -691,12 +903,20 @@ var installBackend = function(app, incomingConfig) {
     var conf = {
         verbose: false,
         logRequests: true,
-        version: "2.2.0"
+        version: "2.2.0",
+        metric_uid_bytes: 3,
+        tagk_uid_bytes: 3,
+        tagv_uid_bytes: 3,
+        projectId: 'opentsdb-cloud'
     };
 
     applyOverrides(incomingConfig, conf);
 
     config = conf;
+
+    datastore = new Datastore({
+        projectId: config.projectId
+    });
 
     api.backend(backend);
     api.install(app, config);
@@ -704,7 +924,20 @@ var installBackend = function(app, incomingConfig) {
 
 module.exports = {
     install: installBackend
-}
+};
+
+var runServer = function(conf) {
+    var app = express();
+    installBackend(app, conf);
+
+    var server = app.listen(config.port, function() {
+        var host = server.address().address
+        var port = server.address().port
+
+        console.log('OpenTSDB/GCE running at http://%s:%s', host, port)
+    });
+    return server;
+};
 
 // command line running
 if (require.main === module) {
@@ -733,14 +966,6 @@ if (require.main === module) {
         }
     }
 
-    var app = express();
-    installBackend(app, conf);
-
-    var server = app.listen(config.port, function() {
-        var host = server.address().address
-        var port = server.address().port
-
-        console.log('OpenTSDB/GCE running at http://%s:%s', host, port)
-    });
+    runServer(conf);
 
 }

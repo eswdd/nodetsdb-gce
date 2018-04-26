@@ -1,5 +1,5 @@
 language: node_js
-sudo: false
+sudo: true
 node_js:
   - "4.0"
   - "4.4"
@@ -12,5 +12,8 @@ notifications:
 before_install:
   - npm -g install npm@latest-2
   - "gem install --version 0.8.9 faraday"
+before_script:
+  - sudo apt-get install gcloud
+  - gcloud beta emulators datastore start --no-store-on-disk
 script: "npm run-script test-coverage"
 after_script: "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js"
