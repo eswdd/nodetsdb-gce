@@ -98,7 +98,13 @@ describe('NodeTSDB GCE Integration Testing', function () {
                             annotations: []
                         }
                     ])
-                    .end(done);
+                    .end(function () {
+                        request(server)
+                            .get('/api/suggest?q=')
+                            .expect('Content-Type', /json/)
+                            .expect(200, ["cpu.percent"])
+                            .end(done);
+                    });
             });
 
     });
@@ -186,7 +192,13 @@ describe('NodeTSDB GCE Integration Testing', function () {
                             annotations: []
                         }
                     ])
-                    .end(done);
+                    .end(function () {
+                        request(server)
+                            .get('/api/suggest?q=disk')
+                            .expect('Content-Type', /json/)
+                            .expect(200, ["disk.used.bytes"])
+                            .end(done);
+                    });
             });
 
     });
