@@ -91,10 +91,37 @@ describe('NodeTSDB GCE Integration Testing', function () {
                         host: "host001",
                         type: "user"
                     }
+                },
+                {
+                    timestamp: 1524536420,
+                    metric: "cpu.percent",
+                    value: 29,
+                    tags: {
+                        host: "host001",
+                        type: "user"
+                    }
+                },
+                {
+                    timestamp: 1524709220,
+                    metric: "cpu.percent",
+                    value: 31,
+                    tags: {
+                        host: "host001",
+                        type: "user"
+                    }
+                },
+                {
+                    timestamp: 1524795620,
+                    metric: "cpu.percent",
+                    value: 33,
+                    tags: {
+                        host: "host001",
+                        type: "user"
+                    }
                 }
             ])
             .expect('Content-Type', /json/)
-            .expect(200, {failed:0,success:3})
+            .expect(200, {failed:0,success:6})
             .end(done);
     });
 
@@ -111,6 +138,31 @@ describe('NodeTSDB GCE Integration Testing', function () {
                         [ 1524450000, 23 ],
                         [ 1524450010, 25 ],
                         [ 1524450020, 27 ]
+                    ],
+                    tsuids: [
+                        "000001000001000001000002000002"
+                    ],
+                    annotations: []
+                }
+            ])
+            .end(done);
+    });
+
+    step('query single timeseries over multiple days', function(done) {
+        request(server)
+            .get('/api/query?start=1524450000&end=1524795610&m=sum:cpu.percent&arrays=true&show_tsuids=true')
+            .expect('Content-Type', /json/)
+            .expect(200, [
+                {
+                    metric: 'cpu.percent',
+                    tags: {}, // todo: should be type and host, but this is caused by api code
+                    aggregatedTags: [ 'host', 'type' ], // todo: should be empty, but again, is api code
+                    dps: [
+                        [ 1524450000, 23 ],
+                        [ 1524450010, 25 ],
+                        [ 1524450020, 27 ],
+                        [ 1524536420, 29 ],
+                        [ 1524709220, 31 ]
                     ],
                     tsuids: [
                         "000001000001000001000002000002"

@@ -59,6 +59,7 @@ var multiUidMetaFrom = function (type, identifiers, callback) {
 
         if (identifiers.length === 0) {
             callback([]);
+            return;
         }
 
         var dsIdentifiers = identifiers.map(function(identifier){return datastore.key([kind, identifier]);});
