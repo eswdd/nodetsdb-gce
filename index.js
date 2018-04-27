@@ -242,7 +242,7 @@ var suggest = function(entity, prefix, max, callback) {
             else {
                 if (entities.length > 0) {
                     // entities found
-                    var uids = entities[0];
+                    var uids = entities;
 
                     var ret = uids.map(function (uid) {
                         return uid.name;
