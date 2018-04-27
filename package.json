@@ -23,8 +23,8 @@
   },
   "scripts": {
     "start": "node faketsdb.js",
-    "test": "mocha -R spec test/*",
-    "test-coverage": "istanbul cover ./node_modules/mocha/bin/_mocha -- -R spec test/*"
+    "test": "mocha --require mocha-steps -R spec test/*",
+    "test-coverage": "istanbul cover ./node_modules/mocha/bin/_mocha -- --require mocha-steps -R spec test/*"
   },
   "dependencies": {
     "@google-cloud/datastore": "^1.4.0",
