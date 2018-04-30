@@ -263,7 +263,15 @@ describe('NodeTSDB GCE Integration Testing', function () {
             .end(done);
     });
 
-    step('suggest with prefix', function(done) {
+    step('suggest all metrics', function(done) {
+        request(server)
+            .get('/api/suggest?type=metrics&q=')
+            .expect('Content-Type', /json/)
+            .expect(200, ["cpu.percent", "disk.used.bytes"])
+            .end(done);
+    });
+
+    step('suggest metrics with prefix', function(done) {
         request(server)
             .get('/api/suggest?type=metrics&q=disk')
             .expect('Content-Type', /json/)
@@ -271,11 +279,35 @@ describe('NodeTSDB GCE Integration Testing', function () {
             .end(done);
     });
 
-    step('suggest all', function(done) {
+    step('suggest all tag keys', function(done) {
         request(server)
-            .get('/api/suggest?type=metrics&q=')
+            .get('/api/suggest?type=tagk&q=')
             .expect('Content-Type', /json/)
-            .expect(200, ["cpu.percent","disk.used.bytes"])
+            .expect(200, ["host", "type", "volume"])
+            .end(done);
+    });
+
+    step('suggest tag keys with prefix', function(done) {
+        request(server)
+            .get('/api/suggest?type=tagk&q=ho')
+            .expect('Content-Type', /json/)
+            .expect(200, ["host"])
+            .end(done);
+    });
+
+    step('suggest all tag values', function(done) {
+        request(server)
+            .get('/api/suggest?type=tagv&q=')
+            .expect('Content-Type', /json/)
+            .expect(200, ["/dev/sda", "/dev/sdb", "host001", "user"])
+            .end(done);
+    });
+
+    step('suggest tag values with prefix', function(done) {
+        request(server)
+            .get('/api/suggest?type=tagv&q=/dev')
+            .expect('Content-Type', /json/)
+            .expect(200, ["/dev/sda", "/dev/sdb"])
             .end(done);
     });
 });

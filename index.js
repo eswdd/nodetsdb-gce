@@ -227,9 +227,19 @@ var suggest = function(entity, prefix, max, callback) {
         prefix = "";
     }
     var query = datastore
-        .createQuery(entity)
-        .filter("__key__", ">", datastore.key([entity, "name:"+prefix]))
-        .order("__key__");
+        .createQuery(entity);
+    if (prefix !== "") {
+        query = query
+            .filter("__key__", ">=", datastore.key([entity, "name:"+prefix]))
+            // todo: fudgeroo!!
+            .filter("__key__", "<=", datastore.key([entity, "name:"+prefix+"zzzzzzzzzzzzzzzzzz"]))
+    }
+    else {
+        // exclude id: keys
+        query = query
+            .filter("__key__", ">=", datastore.key([entity, "name:"]))
+    }
+    query = query.order("__key__");
 
     if (max) {
         query = query.limit(max);
