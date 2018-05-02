@@ -963,6 +963,7 @@ var runServer = function(conf) {
 };
 
 // command line running
+/* istanbul ignore if */
 if (require.main === module) {
     var conf = {
         port: 4242
