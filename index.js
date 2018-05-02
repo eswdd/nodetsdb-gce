@@ -665,7 +665,14 @@ data is Array of {
 
 // on backend api
 backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback) {
-    callback([]); // todo - not supported yet
+    //function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback)
+    var participatingTimeSeries = [
+        {
+            metric_uid: lpad("", "0", config.metric_uid_bytes*2),
+            tsuid: ""
+        }
+    ];
+    backend.performAnnotationsQueries(startTime, endTime, null, participatingTimeSeries, callback);
 };
 
 var loadData = function(startTime, endTime, keyFn, metricUidString, tagUidsString, callback) {

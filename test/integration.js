@@ -467,7 +467,6 @@ describe('NodeTSDB GCE Integration Testing', function () {
             .end(done);
     });
 
-    /*
     step('query data with annotations on multiple timeseries', function(done) {
         request(server)
             .get('/api/query?start=1524450000&end=1524460000&m=sum:disk.used.bytes{host=host001}&arrays=true&show_tsuids=true&no_annotations=false&global_annotations=true')
@@ -537,5 +536,5 @@ describe('NodeTSDB GCE Integration Testing', function () {
                 }
             ])
             .end(done);
-    });*/
+    });
 });
