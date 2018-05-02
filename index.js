@@ -896,24 +896,6 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
     });
 };
 
-var uid = function(type, name) {
-    var meta = backend.uidMetaFromName(type, name);
-    if (meta != null) {
-        return meta.uid;
-    }
-    return null;
-};
-
-var tsuid = function(metric, tags) {
-    var ret = uid("metric", metric);
-    for (var k in tags) {
-        if (tags.hasOwnProperty(k)) {
-            ret += uid("tagk", k) + uid("tagv", tags[k]);
-        }
-    }
-    return ret;
-};
-
 var applyOverrides = function(from, to) {
     for (var k in from) {
         if (from.hasOwnProperty(k)) {
