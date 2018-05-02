@@ -477,7 +477,7 @@ backend.searchLookupImpl = function(metric, limit, useMeta, callback) {
 backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
     // start simple, process in series, single transaction for each, read entity for timeseries/hour, update entity, write down
     var errors = new Array(annotations.length);
-    if (points.length === 0) {
+    if (annotations.length === 0) {
         storeAnnotationsCallback([]);
     }
     var f = function(annotationIndex) {
@@ -506,21 +506,23 @@ backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
                 // force offset to ms
                 var offsetFromHour = ms ? timestamp % 86400000 : (timestamp % 86400) * 1000;
 
+                var tagk_string_len = config.tagk_uid_bytes*2;
+                var tagv_string_len = config.tagv_uid_bytes*2;
                 var tsuid = annotations[annotationIndex].tsuid;
-                var metricUid = "", tagUidString = "", tagUidArray = [];
+                var metricUid = lpad("", "0", config.metric_uid_bytes*2), tagUidString = "", tagUidArray = [];
                 if (tsuid) {
                     metricUid = tsuid.substring(0, config.metric_uid_bytes*2);
-                    tagUidString = tsuid.substring(metric_uid.length + 4);
-                    for (var i=0; i<tagUidString.length; i+=(config.tagk_uid_bytes+config.tagv_uid_bytes)*2) {
-
+                    tagUidString = tsuid.substring(metricUid.length);
+                    for (var i=0; i<tagUidString.length; i+=(tagk_string_len+tagv_string_len)) {
+                        var kString = tagUidString.substring(i,i+tagk_string_len);
+                        var vString = tagUidString.substring(i+tagk_string_len, i+tagk_string_len+tagv_string_len);
+                        tagUidArray.push(kString);
+                        tagUidArray.push(vString);
                     }
                 }
-                var metric_uid = tsuid ? tsuid.substring(0, config.metric_uid_bytes*2) : "";
-                var tagUidString = tsuid ? tsuid.substring(metric_uid.length + 4) : "";
-                var tagUidArray = [];
 
-                var rowId = metricUid + hour + tagUidString;
-                var rowKey = datastore.key(["data", rowId]);
+                var rowId = dataRowKey(metricUid, hour, tagUidString);
+                var rowKey = datastore.key(["ann", rowId]);
                 var row = undefined;
 
                 var processCommitResult = function(err) {
@@ -528,7 +530,7 @@ backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
                         errorMessage = "Error saving entity: " + err;
                     }
                     errors[annotationIndex] = errorMessage;
-                    if (annotationIndex >= points.length - 1) {
+                    if (annotationIndex >= annotations.length - 1) {
                         // console.log(pointIndex+": Sending response: " + JSON.stringify(errors));
                         storeAnnotationsCallback(errors);
                     }
@@ -592,39 +594,60 @@ backend.deleteAnnotation = function(annotation, callback) {
 backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback) {
     // first we can map the time series to a set of row keys for possible annotations
     var startHour = Math.floor(startTime.getTime() / 86400000);
-    var startOffset = startTime.getTime() % 86400000;
+    // var startOffset = startTime.getTime() % 86400000;
     var endHour = Math.floor(endTime.getTime() / 86400000);
-    var endOffset = endTime.getTime() % 86400000;
+    // var endOffset = endTime.getTime() % 86400000;
 
-    callback([]);
-    /*
-        var allKeys = [];
-        var allKeyHours = [];
-        for (var t=0; t<participatingTimeSeries.length; t++) {
-            for (var h=startHour; h<=endHour; h++) {
-                var metricUid = participatingTimeSeries[t].metric_uid;
-                var keyId = dataRowKey(metricUid, h, articipatingTimeSeries[t].tsuid.substring(metricUid.length));
-                var key = datastore.key(["annotation", keyId]);
-                allKeyHours.push(h);
-                allKeys.push(key);
-            }
+    var allKeys = [];
+    for (var t=0; t<participatingTimeSeries.length; t++) {
+        for (var h=startHour; h<=endHour; h++) {
+            var metricUid = participatingTimeSeries[t].metric_uid;
+            var keyId = dataRowKey(metricUid, h, participatingTimeSeries[t].tsuid.substring(metricUid.length));
+            allKeys.push(datastore.key(["ann", keyId]));
         }
+    }
 
-        datastore.get(allKeys, function(err, entities) {
-            if (err) {
-                callback(null, err);
-            }
-            else {
-                var ret = [];
-                for (var i=0; i<allKeys.length; i++) {
-                    var h = allKeyHours[i];
-                    var entity = entities[i];
-                    // entity is raw data
+    datastore.get(allKeys, function(err, entities) {
+        if (err) {
+            callback(null, err);
+        }
+        else {
 
+            // var metricUidLength = config.metric_uid_bytes*2;
+            // var hourLength = 4;
+            // var tagkUidLength = config.tagk_uid_bytes*2;
+            // var tagvUidLength = config.tagv_uid_bytes*2;
+
+            var ret = [];
+            for (var i=0; i<entities.length; i++) {
+                var entity = entities[i];
+                // console.log("ANN ROW: "+JSON.stringify(entity));
+                // var key = entity[Datastore.KEY].name;
+                // console.log("ANN KEY: "+key);
+
+                // var metricUid = key.substring(0, metricUidLength);
+                // var hourString = key.substring(metricUidLength, metricUidLength+hourLength);
+                // var tagString = key.substring(metricUidLength+hourLength);
+                // var tsuid = metricUid+tagString;
+                // var hour = parseInt(hourString, 16);
+
+                for (var offset in entity) {
+                    if (entity.hasOwnProperty(offset) && offset !== "tags" && entity[offset].hasOwnProperty("startTime")) {
+                        var annStartTime = entity[offset].startTime;
+                        var ms = annStartTime > 10000000000;
+                        var desiredStartTime = ms ? startTime.getTime() : startTime.getTime() / 1000;
+                        var desiredEndTime = ms ? endTime.getTime() : endTime.getTime() / 1000;
+
+                        if (annStartTime >= desiredStartTime && annStartTime <= desiredEndTime) {
+                            ret.push(entity[offset]);
+                        }
+                    }
                 }
-                callback(ret, null);
+
             }
-        });*/
+            callback(ret, null);
+        }
+    });
 
 
 };
@@ -816,7 +839,7 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                             if (lastUidString !== undefined && rows[r].tag_uids !== lastUidString) {
                                 ret.push({
                                     metric: metric,
-                                    metric_uid: metricUid,
+                                    metric_uid: metricUid.uid,
                                     tags: currentTags,
                                     tsuid: metricUid.uid+lastUidString,
                                     dps: currentDps

@@ -127,7 +127,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
 
     step('query single timeseries', function(done) {
         request(server)
-            .get('/api/query?start=1524450000&end=1524460000&m=sum:cpu.percent&arrays=true&show_tsuids=true')
+            .get('/api/query?start=1524450000&end=1524460000&m=sum:cpu.percent&arrays=true&show_tsuids=true&no_annotations=true&global_annotations=false')
             .expect('Content-Type', /json/)
             .expect(200, [
                 {
@@ -141,8 +141,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
                     ],
                     tsuids: [
                         "000001000001000001000002000002"
-                    ],
-                    annotations: []
+                    ]
                 }
             ])
             .end(done);
@@ -150,7 +149,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
 
     step('query single timeseries over multiple days', function(done) {
         request(server)
-            .get('/api/query?start=1524450000&end=1524795610&m=sum:cpu.percent&arrays=true&show_tsuids=true')
+            .get('/api/query?start=1524450000&end=1524795610&m=sum:cpu.percent&arrays=true&show_tsuids=true&no_annotations=true&global_annotations=false')
             .expect('Content-Type', /json/)
             .expect(200, [
                 {
@@ -166,8 +165,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
                     ],
                     tsuids: [
                         "000001000001000001000002000002"
-                    ],
-                    annotations: []
+                    ]
                 }
             ])
             .end(done);
@@ -241,7 +239,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
 
     step('read aggregation of multiple timeseries', function(done) {
         request(server)
-            .get('/api/query?start=1524450000&end=1524460000&m=sum:disk.used.bytes{host=host001}&arrays=true&show_tsuids=true')
+            .get('/api/query?start=1524450000&end=1524460000&m=sum:disk.used.bytes{host=host001}&arrays=true&show_tsuids=true&no_annotations=true&global_annotations=false')
             .expect('Content-Type', /json/)
             .expect(200, [
                 {
@@ -256,8 +254,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
                     tsuids: [
                         "000002000001000001000003000003",
                         "000002000001000001000003000004"
-                    ],
-                    annotations: []
+                    ]
                 }
             ])
             .end(done);
@@ -310,4 +307,235 @@ describe('NodeTSDB GCE Integration Testing', function () {
             .expect(200, ["/dev/sda", "/dev/sdb"])
             .end(done);
     });
+
+    step('write annotation on a time series', function(done) {
+       request(server)
+           .post('/api/annotation')
+           .send({
+               tsuid: "000002000001000001000003000003",
+               description: "Some description 1",
+               notes: "Some notes",
+               custom: {
+                   custom1a: "custom1b",
+                   custom2a: "custom2b"
+               },
+               startTime: 1524450060,
+               endTime: 1524450070
+           })
+           .expect('Content-Type', /json/)
+           .expect(200, {
+               tsuid: "000002000001000001000003000003",
+               description: "Some description 1",
+               notes: "Some notes",
+               custom: {
+                   custom1a: "custom1b",
+                   custom2a: "custom2b"
+               },
+               startTime: 1524450060,
+               endTime: 1524450070
+           })
+           .end(done);
+    });
+
+    step('bulk write annotations on some time series', function(done) {
+       request(server)
+           .post('/api/annotation/bulk')
+           .send([
+               {
+                   tsuid: "000002000001000001000003000003",
+                   description: "Some description 2",
+                   notes: "Some notes",
+                   custom: {
+                       custom1a: "custom1c",
+                       custom2a: "custom2c"
+                   },
+                   startTime: 1524450125,
+                   endTime: null
+               },
+               {
+                   tsuid: "000002000001000001000003000004",
+                   description: "Some description 3",
+                   notes: "Some notes",
+                   custom: {
+                       custom1a: "custom1d",
+                       custom2a: "custom2d"
+                   },
+                   startTime: 1524450125,
+                   endTime: null
+               }
+           ])
+           .expect('Content-Type', /json/)
+           .expect(200, [
+               {
+                   tsuid: "000002000001000001000003000003",
+                   description: "Some description 2",
+                   notes: "Some notes",
+                   custom: {
+                       custom1a: "custom1c",
+                       custom2a: "custom2c"
+                   },
+                   startTime: 1524450125,
+                   endTime: null
+               },
+               {
+                   tsuid: "000002000001000001000003000004",
+                   description: "Some description 3",
+                   notes: "Some notes",
+                   custom: {
+                       custom1a: "custom1d",
+                       custom2a: "custom2d"
+                   },
+                   startTime: 1524450125,
+                   endTime: null
+               }
+           ])
+           .end(done);
+    });
+
+    step('write global annotations', function(done) {
+        request(server)
+            .post('/api/annotation')
+            .send({
+                tsuid: 0,
+                description: "Some description 4",
+                notes: "Some notes",
+                custom: {
+                    custom1a: "custom1e",
+                    custom2a: "custom2e"
+                },
+                startTime: 1524450060,
+                endTime: 1524450070
+            })
+            .expect('Content-Type', /json/)
+            .expect(200, {
+                tsuid: 0,
+                description: "Some description 4",
+                notes: "Some notes",
+                custom: {
+                    custom1a: "custom1e",
+                    custom2a: "custom2e"
+                },
+                startTime: 1524450060,
+                endTime: 1524450070
+            })
+            .end(done);
+    });
+
+    step('query data with annotations on a single timeseries', function(done) {
+        request(server)
+            .get('/api/query?start=1524450000&end=1524460000&m=sum:disk.used.bytes{host=host001,volume=/dev/sda}&arrays=true&show_tsuids=true&no_annotations=false&global_annotations=false')
+            .expect('Content-Type', /json/)
+            .expect(200, [
+                {
+                    metric: 'disk.used.bytes',
+                    tags: {host:"host001",volume:"/dev/sda"},
+                    aggregatedTags: [  ],
+                    dps: [
+                        [ 1524450000, 245333400 ],
+                        [ 1524450060, 2453445677 ],
+                        [ 1524450120, 2493453234 ]
+                    ],
+                    tsuids: [
+                        "000002000001000001000003000003"
+                    ],
+                    annotations: [
+                        {
+                            tsuid: "000002000001000001000003000003",
+                            description: "Some description 1",
+                            notes: "Some notes",
+                            custom: {
+                                custom1a: "custom1b",
+                                custom2a: "custom2b"
+                            },
+                            startTime: 1524450060,
+                            endTime: 1524450070
+                        },
+                        {
+                            tsuid: "000002000001000001000003000003",
+                            description: "Some description 2",
+                            notes: "Some notes",
+                            custom: {
+                                custom1a: "custom1c",
+                                custom2a: "custom2c"
+                            },
+                            startTime: 1524450125,
+                            endTime: null
+                        }
+                    ]
+                }
+            ])
+            .end(done);
+    });
+
+    /*
+    step('query data with annotations on multiple timeseries', function(done) {
+        request(server)
+            .get('/api/query?start=1524450000&end=1524460000&m=sum:disk.used.bytes{host=host001}&arrays=true&show_tsuids=true&no_annotations=false&global_annotations=true')
+            .expect('Content-Type', /json/)
+            .expect(200, [
+                {
+                    metric: 'disk.used.bytes',
+                    tags: {host:"host001"},
+                    aggregatedTags: [ 'volume' ],
+                    dps: [
+                        [ 1524450000, 290666800 ],
+                        [ 1524450060, 2906891354 ],
+                        [ 1524450120, 2986906468 ]
+                    ],
+                    tsuids: [
+                        "000002000001000001000003000003",
+                        "000002000001000001000003000004"
+                    ],
+                    annotations: [
+                        {
+                            tsuid: "000002000001000001000003000003",
+                            description: "Some description 1",
+                            notes: "Some notes",
+                            custom: {
+                                custom1a: "custom1b",
+                                custom2a: "custom2b"
+                            },
+                            startTime: 1524450060,
+                            endTime: 1524450070
+                        },
+                        {
+                            tsuid: "000002000001000001000003000003",
+                            description: "Some description 2",
+                            notes: "Some notes",
+                            custom: {
+                                custom1a: "custom1c",
+                                custom2a: "custom2c"
+                            },
+                            startTime: 1524450125,
+                            endTime: null
+                        },
+                        {
+                            tsuid: "000002000001000001000003000004",
+                            description: "Some description 3",
+                            notes: "Some notes",
+                            custom: {
+                                custom1a: "custom1d",
+                                custom2a: "custom2d"
+                            },
+                            startTime: 1524450125,
+                            endTime: null
+                        }
+                    ],
+                    globalAnnotations: [
+                        {
+                            tsuid: 0,
+                            description: "Some description 4",
+                            notes: "Some notes",
+                            custom: {
+                                custom1a: "custom1e",
+                                custom2a: "custom2e"
+                            },
+                            startTime: 1524450060,
+                            endTime: 1524450070
+                        }
+                    ]
+                }
+            ])
+            .end(done);
+    });*/
 });
