@@ -918,7 +918,14 @@ var applyOverrides = function(from, to) {
     }
 }
 
-var installBackend = function(app, incomingConfig) {
+var installApiWithBackend = function(app, incomingConfig) {
+    var backend = setupBackend(incomingConfig);
+
+    api.backend(backend);
+    api.install(app, config);
+};
+
+var setupBackend = function(incomingConfig) {
     if (!incomingConfig) {
         incomingConfig = {};
     }
@@ -941,17 +948,17 @@ var installBackend = function(app, incomingConfig) {
         projectId: config.projectId
     });
 
-    api.backend(backend);
-    api.install(app, config);
-}
+    return backend;
+};
 
 module.exports = {
-    install: installBackend
+    install: installApiWithBackend,
+    backend: setupBackend
 };
 
 var runServer = function(conf) {
     var app = express();
-    installBackend(app, conf);
+    installApiWithBackend(app, conf);
 
     var server = app.listen(config.port, function() {
         var host = server.address().address
