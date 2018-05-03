@@ -310,7 +310,7 @@ var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
                     var tagvCallback = function (tagk_uid, tagv_uid, err) {
                         if (err) {
                             hadError = true;
-                            callback(null, null, err);
+                            callback(null, null, null, err);
                         }
                         else {
                             tagkUids.push(tagk_uid);
@@ -323,7 +323,7 @@ var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
                     var tagkCallback = function (tagk_uid, err) {
                         if (err) {
                             hadError = true;
-                            callback(null, null, err);
+                            callback(null, null, null, err);
                         }
                         else {
                             assignUidIfNecessary("tagv", tagv, function(tagv_uid, err) {
@@ -396,6 +396,7 @@ backend.storePoints = function(points, storePointsCallback) {
                 var offsetFromHour = ms ? timestamp % 86400000 : (timestamp % 86400) * 1000;
 
                 var uidCallback = function(metricUid, tagUidString, tagUidArray, err) {
+                    //console.log("uidCallback("+metricUid+","+tagUidString+","+JSON.stringify(tagUidArray)+","+err+")");
                     if (err) {
                         errors.push(errorMessage);
                         return;
@@ -412,7 +413,7 @@ backend.storePoints = function(points, storePointsCallback) {
                         }
                         errors[pointIndex] = errorMessage;
                         if (pointIndex >= points.length - 1) {
-                            // console.log(pointIndex+": Sending response: " + JSON.stringify(errors));
+                            //console.log(pointIndex+": Sending response: " + JSON.stringify(errors));
                             storePointsCallback(errors);
                         }
                         else {
@@ -427,7 +428,7 @@ backend.storePoints = function(points, storePointsCallback) {
                         }
                         row = entity;
 
-                        console.log("New data row? "+(row === undefined));
+                        //console.log("New data row? "+(row === undefined));
                         var data;
                         if (row === undefined) {
                             // create it
@@ -453,6 +454,7 @@ backend.storePoints = function(points, storePointsCallback) {
                         txn.save(row);
 
                         try {
+                            console.log("committing write on "+rowKey);
                             txn.commit(processCommitResult);
                         }
                         catch (err) {
