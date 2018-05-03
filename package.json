@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1",
+  "version": "0.1.0",
   "name": "nodetsdb-gce",
   "description": "Google Cloud implementation of nodetsdb-api's backend interface backed onto the Google Cloud Datastore",
   "repository": "https://github.com/eswdd/nodetsdb-gce",
