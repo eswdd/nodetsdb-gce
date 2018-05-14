@@ -947,7 +947,7 @@ var setupBackend = function(incomingConfig) {
 
     datastore = new Datastore({
         projectId: config.projectId,
-        keyFile: "./opentsdb-dev-creds.json"
+        // keyFile: "./opentsdb-dev-creds.json"
     });
 
     return backend;
