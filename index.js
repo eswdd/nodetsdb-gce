@@ -71,7 +71,8 @@ var multiUidMetaFrom = function (type, identifiers, callback) {
                 var ret = {};
                 var foundANull = false;
                 for (var i=0; i<identifiers.length; i++) {
-                    ret[identifiers[i]] = entities[i];
+                    var uidmeta = entities[i];
+                    ret[uidmeta.uid] = uidmeta;
                     if (entities[i] === undefined) {
                         foundANull = true;
                     }
@@ -92,22 +93,7 @@ backend.uidMetaFromUid = function(type, uid, callback) {
 };
 
 var multiUidMetaFromUid = function(type, uids, callback) {
-    var cb = function(metas, err) {
-        if (err) {
-            callback(null, err);
-        }
-        else {
-            var newMap = {};
-            for (var k in metas) {
-                if (metas.hasOwnProperty(k)) {
-                    // strip "id:" prefix
-                    newMap[k.substring(3)] = metas[k];
-                }
-            }
-            callback(newMap);
-        }
-    };
-    multiUidMetaFrom(type, uids.map(function(uid) { return "id:"+uid; }), cb);
+    multiUidMetaFrom(type, uids.map(function(uid) { return "id:"+uid; }), callback);
 };
 
 var nextUid = function(txn, kind, callback) {
@@ -370,7 +356,7 @@ backend.storePoints = function(points, storePointsCallback) {
         storePointsCallback([]);
     }
     var f = function(pointIndex) {
-        console.log("f: "+pointIndex);
+        console.log("Processing point "+pointIndex+": "+JSON.stringify(points[pointIndex]));
         var errorMessage = undefined;
         var point = points[pointIndex];
         if (pointIndex >= points.length) {
@@ -703,6 +689,7 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
         // 00000115588 <= x <= 00000115589
         // todo: should be able to query all this in one hit, need to put hour into entity
         var loadRows = function(h, rows) {
+            console.log("loadRows("+h+") where endHour = "+endHour)
             if (h<=endHour) {
                 var timeFilter;
                 if (h !== startHour && h !== endHour) {
@@ -777,7 +764,9 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                                                 dps.push([timestamp, row[String(offset)]]);
                                             }
                                         }
-                                        rows.push({tags:row.tags, tag_uids:tagUidString, dps:dps});
+                                        var toPush = {tags:row.tags, tag_uids:tagUidString, dps:dps};
+                                        console.log("Pushing row: "+JSON.stringify(toPush));
+                                        rows.push(toPush);
                                     }
                                 }
                                 else {
@@ -816,6 +805,7 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                         tagk_uids.push(k);
                     }
                 }
+                console.log("tagk_uids = "+JSON.stringify(tagk_uids));
 
                 var tagv_uids = [];
                 for (var v in allTagvs) {
@@ -823,6 +813,7 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                         tagv_uids.push(v);
                     }
                 }
+                console.log("tagv_uids = "+JSON.stringify(tagv_uids));
 
                 var tagksCallback = function(tagkMetas, err) {
                     if (err) {
@@ -830,6 +821,8 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                         callback(null, err);
                         return;
                     }
+                    console.log("AAAA - ok");
+                    console.log("tagkMetas = "+JSON.stringify(tagkMetas));
 
                     var tagvsCallback = function(tagvMetas, err) {
                         if (err) {
@@ -837,6 +830,8 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                             callback(null, err);
                             return;
                         }
+                        console.log("BBBB - ok");
+                        console.log("tagvMetas = "+JSON.stringify(tagvMetas));
 
                         var ret = [];
 
@@ -863,6 +858,9 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                                 for (var t=0; t<rows[r].tags.length; t+=2) {
                                     var k_uid = rows[r].tags[t];
                                     var v_uid = rows[r].tags[t+1];
+                                    if (!tagkMetas.hasOwnProperty(k_uid)) {
+                                        console.log("Couldn't find a tagk meta for uid: "+k_uid);
+                                    }
                                     var k = tagkMetas[k_uid].name;
                                     tags[k] = {
                                         tagk: k,
@@ -886,6 +884,7 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                             dps: currentDps
                         });
 
+                        console.log("Calling back to API with ret = "+JSON.stringify(ret));
                         callback(ret, null);
                     };
                     multiUidMetaFromUid("tagv", tagv_uids, tagvsCallback);
@@ -947,7 +946,8 @@ var setupBackend = function(incomingConfig) {
     config = conf;
 
     datastore = new Datastore({
-        projectId: config.projectId
+        projectId: config.projectId,
+        keyFile: "./opentsdb-dev-creds.json"
     });
 
     return backend;

@@ -30,38 +30,95 @@ function assertArrayContainsOnly(arrayDesc, expected, actual) {
 }
 
 describe('NodeTSDB GCE Integration Testing', function () {
-    var projectId = 'nodetsdb-gce-integration-testing';
+    var projectId = process.env.GCE_PROJECT_ID || 'nodetsdb-gce-integration-testing';
+    var usingEmulator = process.env.DATASTORE_EMULATOR_HOST && true;
     var emulator, server, nodetsdb;
+    var perTestTimeout = usingEmulator ? 20000 : 120000;
 
-    before(function () {
+    var deleteEntity = function(datastore, entity, callback) {
+        console.log("Selecting all keys for entity "+entity);
+        var keysOnlyQuery = datastore.createQuery(entity).select('__key__');
+
+        datastore.runQuery(keysOnlyQuery, function(err, entities) {
+            var keys = entities.map(function(entity) {
+                return entity[datastore.KEY];
+            });
+
+            console.log("Deleting all keys for entity  "+entity);
+            datastore.delete(keys, callback);
+        });
+
+
+    };
+
+    var deleteExistingData = function(datastore, callback) {
+        var toDelete = ['ann','data','metric_uid','tagk_uid','tagv_uid','uid_sequence'];
+
+        var deleteIndex = function(index) {
+            if (index >= toDelete.length) {
+                console.log("Done deleting data");
+                callback(null);
+                return;
+            }
+
+            deleteEntity(datastore, toDelete[index], function(err) {
+                if (err) {
+                    callback(err);
+                    return;
+                }
+
+                deleteIndex(index+1);
+            });
+        };
+        deleteIndex(0);
+    };
+
+    before(function (done) {
         this.timeout(120000);
 
-        var options = {
-            projectId: projectId,
-            storeOnDisk: false,
-            host: "localhost",
-            port: 8082
-        };
+        if (usingEmulator) {
+            var options = {
+                projectId: projectId,
+                storeOnDisk: false,
+                host: "localhost",
+                port: 8082
+            };
 
-        emulator = new Emulator(options);
+            emulator = new Emulator(options);
+        }
 
         // var success = emulator.start();
 
         nodetsdb = rewire('../index');
-        var runServer = nodetsdb.__get__("runServer");
-        server = runServer({port:4242,verbose:false,projectId:projectId});
 
-        // return success;
+        var runServer = nodetsdb.__get__("runServer");
+
+        server = runServer({port:4242,verbose:true,projectId:projectId});
+
+        var datastore = nodetsdb.__get__("datastore");
+        deleteExistingData(datastore, function(err) {
+            if (err) {
+                done(false);
+                return;
+            }
+
+            done();
+            // done(success);
+        });
     });
 
     after(function (done) {
         this.timeout(2000);
-        // emulator.stop();
-        server.close(done);
+        if (usingEmulator) {
+            // emulator.stop();
+        }
+        if (server != null) {
+            server.close(done);
+        }
     });
 
     step('write single timeseries', function(done) {
-        this.timeout(20000);
+        this.timeout(perTestTimeout)
         request(server)
             .post('/api/put?summary')
             .send([
@@ -126,6 +183,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('query single timeseries', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/query?start=1524450000&end=1524460000&m=sum:cpu.percent&arrays=true&show_tsuids=true&no_annotations=true&global_annotations=false')
             .expect('Content-Type', /json/)
@@ -148,6 +206,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('query single timeseries over multiple days', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/query?start=1524450000&end=1524795610&m=sum:cpu.percent&arrays=true&show_tsuids=true&no_annotations=true&global_annotations=false')
             .expect('Content-Type', /json/)
@@ -172,7 +231,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('write multiple timeseries on single metric', function(done) {
-        this.timeout(20000);
+        this.timeout(perTestTimeout)
         request(server)
             .post('/api/put?summary')
             .send([
@@ -238,6 +297,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('read aggregation of multiple timeseries', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/query?start=1524450000&end=1524460000&m=sum:disk.used.bytes{host=host001}&arrays=true&show_tsuids=true&no_annotations=true&global_annotations=false')
             .expect('Content-Type', /json/)
@@ -261,6 +321,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('suggest all metrics', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/suggest?type=metrics&q=')
             .expect('Content-Type', /json/)
@@ -269,6 +330,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('suggest metrics with prefix', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/suggest?type=metrics&q=disk')
             .expect('Content-Type', /json/)
@@ -277,6 +339,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('suggest all tag keys', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/suggest?type=tagk&q=')
             .expect('Content-Type', /json/)
@@ -285,6 +348,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('suggest tag keys with prefix', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/suggest?type=tagk&q=ho')
             .expect('Content-Type', /json/)
@@ -293,6 +357,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('suggest all tag values', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/suggest?type=tagv&q=')
             .expect('Content-Type', /json/)
@@ -301,6 +366,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('suggest tag values with prefix', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/suggest?type=tagv&q=/dev')
             .expect('Content-Type', /json/)
@@ -309,6 +375,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('write annotation on a time series', function(done) {
+        this.timeout(perTestTimeout)
        request(server)
            .post('/api/annotation')
            .send({
@@ -338,6 +405,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('bulk write annotations on some time series', function(done) {
+        this.timeout(perTestTimeout)
        request(server)
            .post('/api/annotation/bulk')
            .send([
@@ -393,6 +461,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('write global annotations', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .post('/api/annotation')
             .send({
@@ -422,6 +491,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('query data with annotations on a single timeseries', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/query?start=1524450000&end=1524460000&m=sum:disk.used.bytes{host=host001,volume=/dev/sda}&arrays=true&show_tsuids=true&no_annotations=false&global_annotations=false')
             .expect('Content-Type', /json/)
@@ -468,6 +538,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('query data with annotations on multiple timeseries', function(done) {
+        this.timeout(perTestTimeout)
         request(server)
             .get('/api/query?start=1524450000&end=1524460000&m=sum:disk.used.bytes{host=host001}&arrays=true&show_tsuids=true&no_annotations=false&global_annotations=true')
             .expect('Content-Type', /json/)
