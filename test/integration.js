@@ -1,33 +1,6 @@
 var request = require('supertest')
-     , util = require('util')
-   , assert = require('assert')
    , rewire = require('rewire')
  , Emulator = require('google-datastore-emulator');
-
-function errorExpectedActual(msg, expected, actual) {
-    var err = new Error(msg);
-    err.expected = expected;
-    err.actual = actual;
-    err.showDiff = true;
-    return err;
-}
-function errorActual(msg, actual) {
-    var err = new Error(msg);
-    err.actual = actual;
-    err.showDiff = true;
-    return err;
-}
-function assertArrayContainsOnly(arrayDesc, expected, actual) {
-    if (actual.length != 4) {
-        return errorExpectedActual('expected '+arrayDesc+' of length '+expected.length+', got ' + actual.length, expected.length, actual.length);
-    }
-    for (var i=0; i<expected.length; i++) {
-        var lookFor = expected[i];
-        if (actual.indexOf(lookFor) < 0) {
-            return errorActual('expected '+arrayDesc+' to contain '+JSON.stringify(lookFor)+', but was ' + JSON.stringify(actual), actual);
-        }
-    }
-}
 
 describe('NodeTSDB GCE Integration Testing', function () {
     var projectId = process.env.GCE_PROJECT_ID || 'nodetsdb-gce-integration-testing';
