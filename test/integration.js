@@ -31,6 +31,7 @@ function assertArrayContainsOnly(arrayDesc, expected, actual) {
 
 describe('NodeTSDB GCE Integration Testing', function () {
     var projectId = process.env.GCE_PROJECT_ID || 'nodetsdb-gce-integration-testing';
+    var keyFile = process.env.GCE_KEY_FILE || null;
     var usingEmulator = process.env.DATASTORE_EMULATOR_HOST && true;
     var emulator, server, nodetsdb;
     var perTestTimeout = usingEmulator ? 20000 : 120000;
@@ -93,7 +94,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
 
         var runServer = nodetsdb.__get__("runServer");
 
-        server = runServer({port:4242,verbose:true,projectId:projectId});
+        server = runServer({port:4242,verbose:true,projectId:projectId,dataStoreKeyFile:keyFile});
 
         var datastore = nodetsdb.__get__("datastore");
         deleteExistingData(datastore, function(err) {
@@ -417,7 +418,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
                        custom1a: "custom1c",
                        custom2a: "custom2c"
                    },
-                   startTime: 1524450125,
+                   startTime: 1524450124,
                    endTime: null
                },
                {
@@ -442,7 +443,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
                        custom1a: "custom1c",
                        custom2a: "custom2c"
                    },
-                   startTime: 1524450125,
+                   startTime: 1524450124,
                    endTime: null
                },
                {
@@ -528,7 +529,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
                                 custom1a: "custom1c",
                                 custom2a: "custom2c"
                             },
-                            startTime: 1524450125,
+                            startTime: 1524450124,
                             endTime: null
                         }
                     ]
@@ -576,7 +577,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
                                 custom1a: "custom1c",
                                 custom2a: "custom2c"
                             },
-                            startTime: 1524450125,
+                            startTime: 1524450124,
                             endTime: null
                         },
                         {

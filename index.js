@@ -938,7 +938,8 @@ var setupBackend = function(incomingConfig) {
         metric_uid_bytes: 3,
         tagk_uid_bytes: 3,
         tagv_uid_bytes: 3,
-        projectId: 'opentsdb-cloud'
+        projectId: 'opentsdb-cloud',
+        dataStoreKeyFile: null
     };
 
     applyOverrides(incomingConfig, conf);
@@ -947,7 +948,7 @@ var setupBackend = function(incomingConfig) {
 
     datastore = new Datastore({
         projectId: config.projectId,
-        // keyFile: "./opentsdb-dev-creds.json"
+        keyFile: config.dataStoreKeyFile
     });
 
     return backend;
