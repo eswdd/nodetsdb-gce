@@ -101,7 +101,6 @@ var nextUid = function(txn, kind, callback) {
 
     txn.get(uidSequenceKey, function(err, entity) {
         if (err) {
-            // console.log("callback: 1");
             callback(null, "Error loading data entity: " + err);
             return;
         }
@@ -154,19 +153,16 @@ var assignUidIfNecessary = function(type, name, callback) {
 
             txn.get(byNameKey, function(err, entity) {
                 if (err) {
-                    // console.log("callback: 1");
                     callback(null, "Error loading data entity: "+ err);
                     return;
                 }
                 else if (entity !== undefined) {
-                    // console.log("callback: 2");
                     callback(entity.uid);
                     return;
                 }
 
                 nextUid(txn, kind, function(uid, err) {
                     if (err) {
-                        // console.log("callback: 3");
                         callback(null, 'failed to assign uid: '+ err);
                         return;
                     }
@@ -194,11 +190,9 @@ var assignUidIfNecessary = function(type, name, callback) {
 
                     txn.commit(function (err) {
                         if (err) {
-                            // console.log("callback: 3");
                             callback(null, 'failed to assign uid: '+ err);
                         }
                         else {
-                            // console.log("callback: 4");
                             callback(uidString);
                         }
                     });
@@ -269,9 +263,13 @@ backend.suggestTagValues = function(prefix, max, callback) {
 };
 
 var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
-    console.log("withMetricAndTagUids(txn, \""+metric+"\", "+JSON.stringify(incomingTags)+", callback)");
+    if (config.verbose) {
+        console.log("withMetricAndTagUids(txn, \"" + metric + "\", " + JSON.stringify(incomingTags) + ", callback)");
+    }
     var metricUidCallback = function(metricUid, err) {
-        console.log("metricUidCallback: "+metricUid);
+        if (config.verbose) {
+            console.log("metricUidCallback: " + JSON.stringify(metricUid));
+        }
         if (err) {
             callback(null, null, null, err);
         }
@@ -288,7 +286,6 @@ var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
             var tags = {};
             var hadError = false;
             var processNextTag = function (t) {
-                // console.log("Process next tag: "+t);
                 if (t < tagks.length && !hadError) {
                     var tagk = tagks[t];
                     var tagv = incomingTags[tagk];
@@ -343,35 +340,36 @@ var withMetricAndTagUids = function(txn, metric, incomingTags, callback) {
 
 var dataRowKey = function(metricUid, hour, tagUidString) {
     var hString = lpad(hour.toString(16), ' ', 4);
-    var rowKey = metricUid + hString + tagUidString;
-    return rowKey;
-}
+    return metricUid + hString + tagUidString;
+};
 
 // on backend api
 backend.storePoints = function(points, storePointsCallback) {
-    //console.log("storePoints("+JSON.stringify(points)+")");
-    // start simple, process in series, single transaction for each, read entity for timeseries/hour, update entity, write down
+    // start simple, process in series, single transaction for each point, read entity for timeseries/hour, update entity, write down
     var errors = new Array(points.length);
     if (points.length === 0) {
         storePointsCallback([]);
     }
-    var f = function(pointIndex) {
-        console.log("Processing point "+pointIndex+": "+JSON.stringify(points[pointIndex]));
-        var errorMessage = undefined;
+    var storePoint = function(pointIndex) {
         var point = points[pointIndex];
-        if (pointIndex >= points.length) {
-            throw "wat"
+        var errorMessage = undefined;
+
+        if (config.verbose) {
+            console.log("Processing point write " + pointIndex + ": " + JSON.stringify(point));
         }
+        if (pointIndex >= points.length) {
+            throw "wat?"
+        }
+
         var txn = datastore.transaction();
         txn.run(function (err) {
             if (err) {
                 errors[pointIndex] = err;
                 if (pointIndex >= points.length - 1) {
-                    // console.log(pointIndex+": Sending response: " + JSON.stringify(errors));
                     storePointsCallback(errors);
                 }
                 else {
-                    f(pointIndex + 1);
+                    storePoint(pointIndex + 1);
                 }
             }
             else {
@@ -382,7 +380,9 @@ backend.storePoints = function(points, storePointsCallback) {
                 var offsetFromHour = ms ? timestamp % 86400000 : (timestamp % 86400) * 1000;
 
                 var uidCallback = function(metricUid, tagUidString, tagUidArray, err) {
-                    //console.log("uidCallback("+metricUid+","+tagUidString+","+JSON.stringify(tagUidArray)+","+err+")");
+                    if (config.verbose) {
+                        console.log("uidCallback("+metricUid+","+tagUidString+","+JSON.stringify(tagUidArray)+","+err+")");
+                    }
                     if (err) {
                         errors.push(errorMessage);
                         return;
@@ -399,11 +399,10 @@ backend.storePoints = function(points, storePointsCallback) {
                         }
                         errors[pointIndex] = errorMessage;
                         if (pointIndex >= points.length - 1) {
-                            //console.log(pointIndex+": Sending response: " + JSON.stringify(errors));
                             storePointsCallback(errors);
                         }
                         else {
-                            f(pointIndex + 1);
+                            storePoint(pointIndex + 1);
                         }
                     };
 
@@ -414,7 +413,9 @@ backend.storePoints = function(points, storePointsCallback) {
                         }
                         row = entity;
 
-                        //console.log("New data row? "+(row === undefined));
+                        if (config.verbose) {
+                            console.log("New data row? "+(row === undefined));
+                        }
                         var data;
                         if (row === undefined) {
                             // create it
@@ -440,11 +441,12 @@ backend.storePoints = function(points, storePointsCallback) {
                         txn.save(row);
 
                         try {
-                            console.log("committing write on "+rowKey);
+                            if (config.verbose) {
+                                console.log("committing write on "+rowKey);
+                            }
                             txn.commit(processCommitResult);
                         }
                         catch (err) {
-                            // console.log("ERR in commit");
                             processCommitResult(err);
                         }
                     });
@@ -453,7 +455,7 @@ backend.storePoints = function(points, storePointsCallback) {
             }
         });
     };
-    f(0);
+    storePoint(0);
 };
 
 // on backend api
@@ -468,27 +470,30 @@ backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
     if (annotations.length === 0) {
         storeAnnotationsCallback([]);
     }
-    var f = function(annotationIndex) {
-        // console.log("f: "+pointIndex);
+    var storeAnnotation = function(annotationIndex) {
+        var annotation = annotations[annotationIndex];
         var errorMessage = undefined;
-        var point = annotations[annotationIndex];
-        if (annotationIndex >= annotations.length) {
-            throw "wat"
+
+        if (config.verbose) {
+            console.log("Processing annotation " + annotationIndex + ": " + JSON.stringify(annotation));
         }
+        if (annotationIndex >= annotations.length) {
+            throw "wat?"
+        }
+
         var txn = datastore.transaction();
         txn.run(function (err) {
             if (err) {
                 errors[annotationIndex] = err;
                 if (annotationIndex >= annotations.length - 1) {
-                    // console.log(pointIndex+": Sending response: " + JSON.stringify(errors));
                     storeAnnotationsCallback(errors);
                 }
                 else {
-                    f(annotationIndex + 1);
+                    storeAnnotation(annotationIndex + 1);
                 }
             }
             else {
-                var timestamp = annotations[annotationIndex].startTime;
+                var timestamp = annotation.startTime;
                 var ms = timestamp > 10000000000;
                 var hour = Math.floor(ms ? timestamp / 86400000 : timestamp / 86400);
                 // force offset to ms
@@ -496,7 +501,7 @@ backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
 
                 var tagk_string_len = config.tagk_uid_bytes*2;
                 var tagv_string_len = config.tagv_uid_bytes*2;
-                var tsuid = annotations[annotationIndex].tsuid;
+                var tsuid = annotation.tsuid;
                 var metricUid = lpad("", "0", config.metric_uid_bytes*2), tagUidString = "", tagUidArray = [];
                 if (tsuid) {
                     metricUid = tsuid.substring(0, config.metric_uid_bytes*2);
@@ -519,11 +524,10 @@ backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
                     }
                     errors[annotationIndex] = errorMessage;
                     if (annotationIndex >= annotations.length - 1) {
-                        // console.log(pointIndex+": Sending response: " + JSON.stringify(errors));
                         storeAnnotationsCallback(errors);
                     }
                     else {
-                        f(annotationIndex + 1);
+                        storeAnnotation(annotationIndex + 1);
                     }
                 };
 
@@ -534,7 +538,9 @@ backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
                     }
                     row = entity;
 
-                    //console.log("New data row? "+(row === undefined));
+                    if (config.verbose) {
+                        console.log("New data row? "+(row === undefined));
+                    }
                     var data;
                     if (row === undefined) {
                         // create it
@@ -555,7 +561,7 @@ backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
 
                     }
 
-                    data[offsetFromHour.toString()] = annotations[annotationIndex];
+                    data[offsetFromHour.toString()] = annotation;
 
                     txn.save(row);
 
@@ -563,14 +569,13 @@ backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
                         txn.commit(processCommitResult);
                     }
                     catch (err) {
-                        // console.log("ERR in commit");
                         processCommitResult(err);
                     }
                 });
             }
         });
     };
-    f(0);
+    storeAnnotation(0);
 };
 
 // on backend api
@@ -609,9 +614,11 @@ backend.performAnnotationsQueries = function(startTime, endTime, downsampleSecon
             var ret = [];
             for (var i=0; i<entities.length; i++) {
                 var entity = entities[i];
-                // console.log("ANN ROW: "+JSON.stringify(entity));
-                // var key = entity[Datastore.KEY].name;
-                // console.log("ANN KEY: "+key);
+                if (config.verbose) {
+                    console.log("ANN ROW: "+JSON.stringify(entity));
+                    var key = entity[Datastore.KEY].name;
+                    console.log("ANN KEY: "+key);
+                }
 
                 // var metricUid = key.substring(0, metricUidLength);
                 // var hourString = key.substring(metricUidLength, metricUidLength+hourLength);
@@ -669,7 +676,9 @@ var loadData = function(startTime, endTime, keyFn, metricUidString, tagUidsStrin
 
 // on backend api
 backend.performBackendQueries = function(startTime, endTime, downsample, metric, filters, callback) {
-    console.log("performBackendQueries("+startTime+","+endTime+", "+downsample+", "+metric+", "+filters+")");
+    if (config.verbose) {
+        console.log("performBackendQueries(" + startTime + "," + endTime + ", " + downsample + ", " + metric + ", " + filters + ")");
+    }
     uidMetaFromName("metric", metric, function(metricUid, err) {
         if (err) {
             callback(null, err);
@@ -689,7 +698,9 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
         // 00000115588 <= x <= 00000115589
         // todo: should be able to query all this in one hit, need to put hour into entity
         var loadRows = function(h, rows) {
-            console.log("loadRows("+h+") where endHour = "+endHour)
+            if (config.verbose) {
+                console.log("loadRows("+h+") where endHour = "+endHour)
+            }
             if (h<=endHour) {
                 var timeFilter;
                 if (h !== startHour && h !== endHour) {
@@ -714,15 +725,18 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
 
                 var startKey = datastore.key(["data", dataRowKey(metricUid.uid, h, "")]);
                 var endKey = datastore.key(["data", dataRowKey(metricUid.uid, h+1, "")]);
-                console.log("Finding data rows where "+JSON.stringify(startKey)+" <= __key__ <= "+JSON.stringify(endKey));
+                if (config.verbose) {
+                    console.log("Finding data rows where " + JSON.stringify(startKey) + " <= __key__ <= " + JSON.stringify(endKey));
+                }
 
                 var runQuery = function(cursor) {
-                    console.log(h+": Running query with start cursor: "+cursor);
+                    if (config.verbose) {
+                        console.log(h+": Running query with start cursor: "+cursor);
+                    }
                     var query = datastore
                         .createQuery("data")
                         .filter("__key__", ">=", startKey)
                         .filter("__key__", "<=", endKey)
-                        // .limit(2000000000)
                         .order("__key__");
 
                     if (cursor) {
@@ -731,20 +745,25 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
 
                     datastore
                         .runQuery(query, function(err, entities, info) {
-                            console.log("query result info: "+JSON.stringify(info));
+                            if (config.verbose) {
+                                console.log("query result info: "+JSON.stringify(info));
+                            }
                             if (err) {
-                                console.log("CCCC");
                                 callback(null, err);
                             }
                             else {
                                 if (entities.length > 0) {
                                     // entities found
                                     var rawRows = entities;
-                                    console.log("Found "+rawRows.length+" raw rows");
+                                    if (config.verbose) {
+                                        console.log("Found "+rawRows.length+" raw rows");
+                                    }
 
                                     // todo: filter the data!
                                     for (var r=0; r<rawRows.length; r++) {
-                                        console.log("ROW: "+JSON.stringify(rawRows[r]));
+                                        if (config.verbose) {
+                                            console.log("ROW: "+JSON.stringify(rawRows[r]));
+                                        }
                                         var row = rawRows[r];
 
                                         var tagUidString = row.tags.join("");
@@ -765,16 +784,22 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                                             }
                                         }
                                         var toPush = {tags:row.tags, tag_uids:tagUidString, dps:dps};
-                                        console.log("Pushing row: "+JSON.stringify(toPush));
+                                        if (config.verbose) {
+                                            console.log("Pushing row: "+JSON.stringify(toPush));
+                                        }
                                         rows.push(toPush);
                                     }
                                 }
                                 else {
-                                    console.log("Found 0 raw rows");
+                                    if (config.verbose) {
+                                        console.log("Found 0 raw rows");
+                                    }
                                 }
 
                                 if (info.moreResults !== Datastore.NO_MORE_RESULTS && info.endCursor !== cursor) {
-                                    console.log("old cursor: "+cursor+", new cursor: "+info.endCursor);
+                                    if (config.verbose) {
+                                        console.log("old cursor: "+cursor+", new cursor: "+info.endCursor);
+                                    }
                                     runQuery(info.endCursor);
                                 }
                                 else {
@@ -805,7 +830,9 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                         tagk_uids.push(k);
                     }
                 }
-                console.log("tagk_uids = "+JSON.stringify(tagk_uids));
+                if (config.verbose) {
+                    console.log("tagk_uids = "+JSON.stringify(tagk_uids));
+                }
 
                 var tagv_uids = [];
                 for (var v in allTagvs) {
@@ -813,25 +840,27 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                         tagv_uids.push(v);
                     }
                 }
-                console.log("tagv_uids = "+JSON.stringify(tagv_uids));
+                if (config.verbose) {
+                    console.log("tagv_uids = "+JSON.stringify(tagv_uids));
+                }
 
                 var tagksCallback = function(tagkMetas, err) {
                     if (err) {
-                        console.log("AAAA");
                         callback(null, err);
                         return;
                     }
-                    console.log("AAAA - ok");
-                    console.log("tagkMetas = "+JSON.stringify(tagkMetas));
+                    if (config.verbose) {
+                        console.log("tagkMetas = "+JSON.stringify(tagkMetas));
+                    }
 
                     var tagvsCallback = function(tagvMetas, err) {
                         if (err) {
-                            console.log("BBBB");
                             callback(null, err);
                             return;
                         }
-                        console.log("BBBB - ok");
-                        console.log("tagvMetas = "+JSON.stringify(tagvMetas));
+                        if (config.verbose) {
+                            console.log("tagvMetas = "+JSON.stringify(tagvMetas));
+                        }
 
                         var ret = [];
 
@@ -858,7 +887,7 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                                 for (var t=0; t<rows[r].tags.length; t+=2) {
                                     var k_uid = rows[r].tags[t];
                                     var v_uid = rows[r].tags[t+1];
-                                    if (!tagkMetas.hasOwnProperty(k_uid)) {
+                                    if (config.verbose && !tagkMetas.hasOwnProperty(k_uid)) {
                                         console.log("Couldn't find a tagk meta for uid: "+k_uid);
                                     }
                                     var k = tagkMetas[k_uid].name;
@@ -884,7 +913,9 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                             dps: currentDps
                         });
 
-                        console.log("Calling back to API with ret = "+JSON.stringify(ret));
+                        if (config.verbose) {
+                            console.log("Calling back to API with ret = "+JSON.stringify(ret));
+                        }
                         callback(ret, null);
                     };
                     multiUidMetaFromUid("tagv", tagv_uids, tagvsCallback);
@@ -908,7 +939,9 @@ var applyOverrides = function(from, to) {
                         to[k] = from[k];
                         continue;
                     default:
-                        console.log("unhandled: "+(typeof from[k]));
+                        if (config.verbose) {
+                            console.log("unhandled: "+(typeof from[k]));
+                        }
                 }
                 applyOverrides(from[k], to[k]);
             }
