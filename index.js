@@ -615,16 +615,9 @@ backend.performAnnotationsQueries = function(startTime, endTime, downsampleSecon
             for (var i=0; i<entities.length; i++) {
                 var entity = entities[i];
                 if (config.verbose) {
-                    console.log("ANN ROW: "+JSON.stringify(entity));
                     var key = entity[Datastore.KEY].name;
-                    console.log("ANN KEY: "+key);
+                    console.log("ANN ROW: "+key+" = "+JSON.stringify(entity));
                 }
-
-                // var metricUid = key.substring(0, metricUidLength);
-                // var hourString = key.substring(metricUidLength, metricUidLength+hourLength);
-                // var tagString = key.substring(metricUidLength+hourLength);
-                // var tsuid = metricUid+tagString;
-                // var hour = parseInt(hourString, 16);
 
                 for (var offset in entity) {
                     if (entity.hasOwnProperty(offset) && offset !== "tags" && entity[offset].hasOwnProperty("startTime")) {
@@ -676,9 +669,9 @@ var decomposeRowKey = function(rowKey) {
     // var tagkUidLength = config.tagk_uid_bytes*2;
     // var tagvUidLength = config.tagv_uid_bytes*2;
 
-    var metricUidString = key.substring(0, metricUidLength);
-    var tagUidString = key.substring(metricUidLength+hourLength);
-    var hourString = key.substring(metricUidLength, metricUidLength+hourLength);
+    var metricUidString = rowKey.substring(0, metricUidLength);
+    var tagUidString = rowKey.substring(metricUidLength+hourLength);
+    var hourString = rowKey.substring(metricUidLength, metricUidLength+hourLength);
 
     return {
         metricUid: metricUidString,
