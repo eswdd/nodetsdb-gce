@@ -679,6 +679,12 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
     if (config.verbose) {
         console.log("performBackendQueries(" + startTime + "," + endTime + ", " + downsample + ", " + metric + ", " + filters + ")");
     }
+
+    var metricUidLength = config.metric_uid_bytes*2;
+    var hourLength = 4;
+    var tagkUidLength = config.tagk_uid_bytes*2;
+    var tagvUidLength = config.tagv_uid_bytes*2;
+
     uidMetaFromName("metric", metric, function(metricUid, err) {
         if (err) {
             callback(null, err);
@@ -689,242 +695,243 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
             callback(null, "Metric "+metric+" not known");
             return;
         }
-        // now run a query from metricUid+startHour to metricUid+endHour inclusive
+        // now run a query from metricUid+startHour inclusive to metricUid+(endHour+1) exclusive
         var startHour = Math.floor(startTime.getTime() / 86400000);
         var startOffset = startTime.getTime() % 86400000;
         var endHour = Math.floor(endTime.getTime() / 86400000);
         var endOffset = endTime.getTime() % 86400000;
-        // 0000011558811
-        // 00000115588 <= x <= 00000115589
-        // todo: should be able to query all this in one hit, need to put hour into entity
-        var loadRows = function(h, rows) {
+
+        var timeFilterFunction = function(h) {
+            if (h !== startHour && h !== endHour) {
+                return function() {return true;}
+            }
+            else if (h === startHour && h === endHour) {
+                // filter both ends
+                return function(offset) {
+                    return offset >= startOffset && offset <= endOffset;
+                }
+            }
+            else if (h === startHour) {
+                return function(offset) {
+                    return offset >= startOffset;
+                }
+            }
+            else { //if (h == endHour) {
+                return function(offset) {
+                    return offset <= endOffset;
+                }
+            }
+        };
+
+        var startKey = datastore.key(["data", dataRowKey(metricUid.uid, startHour, "")]);
+        var endKey = datastore.key(["data", dataRowKey(metricUid.uid, endHour+1, "")]);
+        if (config.verbose) {
+            console.log("Finding data rows where " + JSON.stringify(startKey) + " <= __key__ < " + JSON.stringify(endKey));
+        }
+
+        var processRawRows = function(rows) {
+            // each item in rows has a tag string and some dps, should be in order so we can detect switches of tag string
+            var allTagks = {};
+            var allTagvs = {};
+            for (var r=0; r<rows.length; r++) {
+                for (var t=0; t<rows[r].tags.length; t+=2) {
+                    var tagk = rows[r].tags[t];
+                    var tagv = rows[r].tags[t+1];
+                    allTagks[tagk] = tagk;
+                    allTagvs[tagv] = tagv;
+                }
+            }
+
+            var tagk_uids = [];
+            for (var k in allTagks) {
+                if (allTagks.hasOwnProperty(k)) {
+                    tagk_uids.push(k);
+                }
+            }
             if (config.verbose) {
-                console.log("loadRows("+h+") where endHour = "+endHour)
+                console.log("tagk_uids = "+JSON.stringify(tagk_uids));
             }
-            if (h<=endHour) {
-                var timeFilter;
-                if (h !== startHour && h !== endHour) {
-                    timeFilter = function() {return true;}
+
+            var tagv_uids = [];
+            for (var v in allTagvs) {
+                if (allTagvs.hasOwnProperty(v)) {
+                    tagv_uids.push(v);
                 }
-                else if (h === startHour && h === endHour) {
-                    // filter both ends
-                    timeFilter = function(offset) {
-                        return offset >= startOffset && offset <= endOffset;
-                    }
-                }
-                else if (h === startHour) {
-                    timeFilter = function(offset) {
-                        return offset >= startOffset;
-                    }
-                }
-                else { //if (h == endHour) {
-                    timeFilter = function(offset) {
-                        return offset <= endOffset;
-                    }
-                }
-
-                var startKey = datastore.key(["data", dataRowKey(metricUid.uid, h, "")]);
-                var endKey = datastore.key(["data", dataRowKey(metricUid.uid, h+1, "")]);
-                if (config.verbose) {
-                    console.log("Finding data rows where " + JSON.stringify(startKey) + " <= __key__ <= " + JSON.stringify(endKey));
-                }
-
-                var runQuery = function(cursor) {
-                    if (config.verbose) {
-                        console.log(h+": Running query with start cursor: "+cursor);
-                    }
-                    var query = datastore
-                        .createQuery("data")
-                        .filter("__key__", ">=", startKey)
-                        .filter("__key__", "<=", endKey)
-                        .order("__key__");
-
-                    if (cursor) {
-                        query = query.start(cursor);
-                    }
-
-                    datastore
-                        .runQuery(query, function(err, entities, info) {
-                            if (config.verbose) {
-                                console.log("query result info: "+JSON.stringify(info));
-                            }
-                            if (err) {
-                                callback(null, err);
-                            }
-                            else {
-                                if (entities.length > 0) {
-                                    // entities found
-                                    var rawRows = entities;
-                                    if (config.verbose) {
-                                        console.log("Found "+rawRows.length+" raw rows");
-                                    }
-
-                                    // todo: filter the data!
-                                    for (var r=0; r<rawRows.length; r++) {
-                                        if (config.verbose) {
-                                            console.log("ROW: "+JSON.stringify(rawRows[r]));
-                                        }
-                                        var row = rawRows[r];
-
-                                        var tagUidString = row.tags.join("");
-
-                                        var keys = [];
-                                        for (var k in row) {
-                                            if (row.hasOwnProperty(k) && k !== "tags") {
-                                                keys.push(Number(k));
-                                            }
-                                        }
-                                        keys.sort();
-                                        var dps = [];
-                                        for (var i=0; i<keys.length; i++) {
-                                            var offset = keys[i];
-                                            if (timeFilter(offset)) {
-                                                var timestamp = (h * 86400000) + offset;
-                                                dps.push([timestamp, row[String(offset)]]);
-                                            }
-                                        }
-                                        var toPush = {tags:row.tags, tag_uids:tagUidString, dps:dps};
-                                        if (config.verbose) {
-                                            console.log("Pushing row: "+JSON.stringify(toPush));
-                                        }
-                                        rows.push(toPush);
-                                    }
-                                }
-                                else {
-                                    if (config.verbose) {
-                                        console.log("Found 0 raw rows");
-                                    }
-                                }
-
-                                if (info.moreResults !== Datastore.NO_MORE_RESULTS && info.endCursor !== cursor) {
-                                    if (config.verbose) {
-                                        console.log("old cursor: "+cursor+", new cursor: "+info.endCursor);
-                                    }
-                                    runQuery(info.endCursor);
-                                }
-                                else {
-                                    loadRows(h + 1, rows);
-                                }
-                            }
-                        });
-
-                };
-                runQuery(null);
             }
-            else {
-                // each item in rows has a tag string and some dps, should be in order so we can detect switches of tag string
-                var allTagks = {};
-                var allTagvs = {};
-                for (var r=0; r<rows.length; r++) {
-                    for (var t=0; t<rows[r].tags.length; t+=2) {
-                        var tagk = rows[r].tags[t];
-                        var tagv = rows[r].tags[t+1];
-                        allTagks[tagk] = tagk;
-                        allTagvs[tagv] = tagv;
-                    }
-                }
+            if (config.verbose) {
+                console.log("tagv_uids = "+JSON.stringify(tagv_uids));
+            }
 
-                var tagk_uids = [];
-                for (var k in allTagks) {
-                    if (allTagks.hasOwnProperty(k)) {
-                        tagk_uids.push(k);
-                    }
+            var tagksCallback = function(tagkMetas, err) {
+                if (err) {
+                    callback(null, err);
+                    return;
                 }
                 if (config.verbose) {
-                    console.log("tagk_uids = "+JSON.stringify(tagk_uids));
+                    console.log("tagkMetas = "+JSON.stringify(tagkMetas));
                 }
 
-                var tagv_uids = [];
-                for (var v in allTagvs) {
-                    if (allTagvs.hasOwnProperty(v)) {
-                        tagv_uids.push(v);
-                    }
-                }
-                if (config.verbose) {
-                    console.log("tagv_uids = "+JSON.stringify(tagv_uids));
-                }
-
-                var tagksCallback = function(tagkMetas, err) {
+                var tagvsCallback = function(tagvMetas, err) {
                     if (err) {
                         callback(null, err);
                         return;
                     }
                     if (config.verbose) {
-                        console.log("tagkMetas = "+JSON.stringify(tagkMetas));
+                        console.log("tagvMetas = "+JSON.stringify(tagvMetas));
                     }
 
-                    var tagvsCallback = function(tagvMetas, err) {
-                        if (err) {
-                            callback(null, err);
-                            return;
+                    var ret = [];
+
+                    var lastUidString = undefined;
+                    var currentDps = [];
+                    var currentTags = {};
+
+                    for (var r=0; r<rows.length; r++) {
+                        if (lastUidString !== undefined && rows[r].tag_uids !== lastUidString) {
+                            ret.push({
+                                metric: metric,
+                                metric_uid: metricUid.uid,
+                                tags: currentTags,
+                                tsuid: metricUid.uid+lastUidString,
+                                dps: currentDps
+                            });
+                            lastUidString = undefined;
                         }
-                        if (config.verbose) {
-                            console.log("tagvMetas = "+JSON.stringify(tagvMetas));
-                        }
 
-                        var ret = [];
-
-                        var lastUidString = undefined;
-                        var currentDps = [];
-                        var currentTags = {};
-
-                        for (var r=0; r<rows.length; r++) {
-                            if (lastUidString !== undefined && rows[r].tag_uids !== lastUidString) {
-                                ret.push({
-                                    metric: metric,
-                                    metric_uid: metricUid.uid,
-                                    tags: currentTags,
-                                    tsuid: metricUid.uid+lastUidString,
-                                    dps: currentDps
-                                });
-                                lastUidString = undefined;
-                            }
-
-                            if (lastUidString === undefined) {
-                                // reset
-                                currentDps = [];
-                                var tags = {};
-                                for (var t=0; t<rows[r].tags.length; t+=2) {
-                                    var k_uid = rows[r].tags[t];
-                                    var v_uid = rows[r].tags[t+1];
-                                    if (config.verbose && !tagkMetas.hasOwnProperty(k_uid)) {
-                                        console.log("Couldn't find a tagk meta for uid: "+k_uid);
-                                    }
-                                    var k = tagkMetas[k_uid].name;
-                                    tags[k] = {
-                                        tagk: k,
-                                        tagk_uid: k_uid,
-                                        tagv: tagvMetas[v_uid].name,
-                                        tagv_uid: v_uid
-                                    };
+                        if (lastUidString === undefined) {
+                            // reset
+                            currentDps = [];
+                            var tags = {};
+                            for (var t=0; t<rows[r].tags.length; t+=2) {
+                                var k_uid = rows[r].tags[t];
+                                var v_uid = rows[r].tags[t+1];
+                                if (config.verbose && !tagkMetas.hasOwnProperty(k_uid)) {
+                                    console.log("Couldn't find a tagk meta for uid: "+k_uid);
                                 }
-                                currentTags = tags;
-                                lastUidString = rows[r].tag_uids;
+                                var k = tagkMetas[k_uid].name;
+                                tags[k] = {
+                                    tagk: k,
+                                    tagk_uid: k_uid,
+                                    tagv: tagvMetas[v_uid].name,
+                                    tagv_uid: v_uid
+                                };
+                            }
+                            currentTags = tags;
+                            lastUidString = rows[r].tag_uids;
+                        }
+
+                        currentDps = currentDps.concat(rows[r].dps);
+                    }
+                    // push the last one
+                    ret.push({
+                        metric: metric,
+                        metric_uid: metricUid.uid,
+                        tags: currentTags,
+                        tsuid: metricUid.uid+lastUidString,
+                        dps: currentDps
+                    });
+
+                    if (config.verbose) {
+                        console.log("Calling back to API with ret = "+JSON.stringify(ret));
+                    }
+                    callback(ret, null);
+                };
+                multiUidMetaFromUid("tagv", tagv_uids, tagvsCallback);
+            };
+            multiUidMetaFromUid("tagk", tagk_uids, tagksCallback);
+        };
+
+        var runQuery = function(cursor, rows) {
+            if (config.verbose) {
+                console.log("Running query with start cursor: " + cursor);
+            }
+            var query = datastore
+                .createQuery("data")
+                .filter("__key__", ">=", startKey)
+                .filter("__key__", "<", endKey)
+                .order("__key__");
+
+            if (cursor) {
+                query = query.start(cursor);
+            }
+
+            datastore
+                .runQuery(query, function(err, entities, info) {
+                    if (config.verbose) {
+                        console.log("query result info: "+JSON.stringify(info));
+                    }
+                    if (err) {
+                        callback(null, err);
+                    }
+                    else {
+                        if (entities.length > 0) {
+                            // entities found
+                            var rawRows = entities;
+                            if (config.verbose) {
+                                console.log("Found "+rawRows.length+" raw rows");
                             }
 
-                            currentDps = currentDps.concat(rows[r].dps);
-                        }
-                        // push the last one
-                        ret.push({
-                            metric: metric,
-                            metric_uid: metricUid.uid,
-                            tags: currentTags,
-                            tsuid: metricUid.uid+lastUidString,
-                            dps: currentDps
-                        });
+                            // todo: filter the data!
+                            for (var r=0; r<rawRows.length; r++) {
+                                if (config.verbose) {
+                                    console.log("ROW: "+JSON.stringify(rawRows[r]));
+                                }
+                                var row = rawRows[r];
 
-                        if (config.verbose) {
-                            console.log("Calling back to API with ret = "+JSON.stringify(ret));
+
+                                var key = row[Datastore.KEY].name;
+                                if (config.verbose) {
+                                    console.log("ROW KEY: "+key);
+                                }
+                                // var metricUid = key.substring(0, metricUidLength);
+                                var hourString = key.substring(metricUidLength, metricUidLength+hourLength);
+                                var tagUidString = key.substring(metricUidLength+hourLength);
+                                //var tsuid = metricUid+tagUidString;
+                                var hour = parseInt(hourString, 16);
+                                var timeFilter = timeFilterFunction(hour);
+
+                                var keys = [];
+                                for (var k in row) {
+                                    if (row.hasOwnProperty(k) && k !== "tags") {
+                                        keys.push(Number(k));
+                                    }
+                                }
+                                keys.sort();
+                                var dps = [];
+                                for (var i=0; i<keys.length; i++) {
+                                    var offset = keys[i];
+                                    if (timeFilter(offset)) {
+                                        var timestamp = (hour * 86400000) + offset;
+                                        dps.push([timestamp, row[String(offset)]]);
+                                    }
+                                }
+                                var toPush = {tags:row.tags, tag_uids:tagUidString, dps:dps};
+                                if (config.verbose) {
+                                    console.log("Pushing row: "+JSON.stringify(toPush));
+                                }
+                                rows.push(toPush);
+                            }
                         }
-                        callback(ret, null);
-                    };
-                    multiUidMetaFromUid("tagv", tagv_uids, tagvsCallback);
-                };
-                multiUidMetaFromUid("tagk", tagk_uids, tagksCallback);
-            }
+                        else {
+                            if (config.verbose) {
+                                console.log("Found 0 raw rows");
+                            }
+                        }
+
+                        if (info.moreResults !== Datastore.NO_MORE_RESULTS && info.endCursor !== cursor) {
+                            if (config.verbose) {
+                                console.log("old cursor: "+cursor+", new cursor: "+info.endCursor);
+                            }
+                            runQuery(info.endCursor, rows);
+                        }
+                        else {
+                            console.log("out of rows, what now?");
+                            processRawRows(rows);
+                        }
+                    }
+                });
         };
-        loadRows(startHour, []);
-
+        runQuery(null, []);
     });
 };
 
