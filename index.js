@@ -670,8 +670,22 @@ backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback) {
     backend.performAnnotationsQueries(startTime, endTime, null, participatingTimeSeries, callback);
 };
 
-var loadData = function(startTime, endTime, keyFn, metricUidString, tagUidsString, callback) {
+var decomposeRowKey = function(rowKey) {
+    var metricUidLength = config.metric_uid_bytes*2;
+    var hourLength = 4;
+    // var tagkUidLength = config.tagk_uid_bytes*2;
+    // var tagvUidLength = config.tagv_uid_bytes*2;
 
+    var metricUidString = key.substring(0, metricUidLength);
+    var tagUidString = key.substring(metricUidLength+hourLength);
+    var hourString = key.substring(metricUidLength, metricUidLength+hourLength);
+
+    return {
+        metricUid: metricUidString,
+        tagUidString: tagUidString,
+        tsuid: metricUidString + tagUidString,
+        hour: parseInt(hourString, 16)
+    };
 };
 
 // on backend api
@@ -680,10 +694,6 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
         console.log("performBackendQueries(" + startTime + "," + endTime + ", " + downsample + ", " + metric + ", " + filters + ")");
     }
 
-    var metricUidLength = config.metric_uid_bytes*2;
-    var hourLength = 4;
-    var tagkUidLength = config.tagk_uid_bytes*2;
-    var tagvUidLength = config.tagv_uid_bytes*2;
 
     uidMetaFromName("metric", metric, function(metricUid, err) {
         if (err) {
@@ -883,11 +893,10 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                                 if (config.verbose) {
                                     console.log("ROW KEY: "+key);
                                 }
-                                // var metricUid = key.substring(0, metricUidLength);
-                                var hourString = key.substring(metricUidLength, metricUidLength+hourLength);
-                                var tagUidString = key.substring(metricUidLength+hourLength);
-                                //var tsuid = metricUid+tagUidString;
-                                var hour = parseInt(hourString, 16);
+
+                                var decomposedKey = decomposeRowKey(key);
+                                var tagUidString = decomposedKey.tagUidString;
+                                var hour = decomposedKey.hour;
                                 var timeFilter = timeFilterFunction(hour);
 
                                 var keys = [];
