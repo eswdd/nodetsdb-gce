@@ -271,7 +271,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
     });
 
     step('read aggregation of multiple timeseries', function(done) {
-        this.timeout(perTestTimeout)
+        this.timeout(perTestTimeout);
         request(server)
             .get('/api/query?start=1524450000&end=1524460000&m=sum:disk.used.bytes{host=host001}&arrays=true&show_tsuids=true&no_annotations=true&global_annotations=false')
             .expect('Content-Type', /json/)
@@ -291,6 +291,108 @@ describe('NodeTSDB GCE Integration Testing', function () {
                     ]
                 }
             ])
+            .end(done);
+    });
+
+    step('search for timeseries under a metric', function(done) {
+        this.timeout(perTestTimeout);
+        request(server)
+            .get('/api/search/lookup?m=disk.used.bytes&use_meta=false&limit=10')
+            .expect('Content-Type', /json/)
+            .expect(200, {
+                "type": "LOOKUP",
+                "metric": "disk.used.bytes",
+                "limit": 10,
+                "time": 1,
+                "results": [
+                    {
+                        "tags": {
+                            "host": "host001",
+                            "volume": "/dev/sda"
+                        },
+                        "metric": "disk.used.bytes",
+                        "tsuid": "000002000001000001000003000003"
+                    },
+                    {
+                        "tags": {
+                            "host": "host001",
+                            "volume": "/dev/sdb"
+                        },
+                        "metric": "disk.used.bytes",
+                        "tsuid": "000002000001000001000003000004"
+                    }
+                ],
+                "startIndex": 0,
+                "totalResults": 2
+            })
+            .end(done);
+    });
+
+    step('search for timeseries containing a tagk', function(done) {
+        this.timeout(perTestTimeout);
+        request(server)
+            .get('/api/search/lookup?m={host=*}&use_meta=false&limit=10')
+            .expect('Content-Type', /json/)
+            .expect(200, {
+                "type": "LOOKUP",
+                "metric": "{host=*}",
+                "limit": 10,
+                "time": 1,
+                "results": [
+                    {
+                        "tags": {
+                            host: "host001",
+                            type: "user"
+                        },
+                        "metric": "cpu.percent",
+                        "tsuid": "000001000001000001000002000002"
+                    },
+                    {
+                        "tags": {
+                            "host": "host001",
+                            "volume": "/dev/sda"
+                        },
+                        "metric": "disk.used.bytes",
+                        "tsuid": "000002000001000001000003000003"
+                    },
+                    {
+                        "tags": {
+                            "host": "host001",
+                            "volume": "/dev/sdb"
+                        },
+                        "metric": "disk.used.bytes",
+                        "tsuid": "000002000001000001000003000004"
+                    }
+                ],
+                "startIndex": 0,
+                "totalResults": 3
+            })
+            .end(done);
+    });
+
+    step('search for timeseries containing a tagv', function(done) {
+        this.timeout(perTestTimeout);
+        request(server)
+            .get('/api/search/lookup?m={*=/dev/sda}&use_meta=false&limit=10')
+            .expect('Content-Type', /json/)
+            .expect(200, {
+                "type": "LOOKUP",
+                "metric": "{*=/dev/sda}",
+                "limit": 10,
+                "time": 1,
+                "results": [
+                    {
+                        "tags": {
+                            "host": "host001",
+                            "volume": "/dev/sda"
+                        },
+                        "metric": "disk.used.bytes",
+                        "tsuid": "000002000001000001000003000003"
+                    }
+                ],
+                "startIndex": 0,
+                "totalResults": 1
+            })
             .end(done);
     });
 
