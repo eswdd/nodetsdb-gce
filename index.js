@@ -598,7 +598,6 @@ backend.searchLookupImpl = function(query, limit, useMeta, callback) {
                         var rowsForDistinctTsuids = [];
 
                         for (var r=0; r<entities.length; r++) {
-                        for (var r=0; r<entities.length; r++) {
                             var row = entities[r];
 
                             var key = row[Datastore.KEY].name;
