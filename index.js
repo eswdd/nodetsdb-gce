@@ -36,7 +36,7 @@ var uidMetaFrom = function (type, identifier, callback) {
             return;
         }
 
-        datastore.get(datastore.key([kind, identifier]), function(err, entity) {
+        datastore.get(datastore.key({namespace:config.namespace,path:[kind, identifier]}), function(err, entity) {
             if (err) {
                 callback(null, err);
             }
@@ -63,7 +63,7 @@ var multiUidMetaFrom = function (type, identifiers, callback) {
         }
 
         console.log("Loading "+kind+" identifiers: "+JSON.stringify(identifiers));
-        var dsIdentifiers = identifiers.map(function(identifier){return datastore.key([kind, identifier]);});
+        var dsIdentifiers = identifiers.map(function(identifier){return datastore.key({namespace:config.namespace,path:[kind, identifier]});});
         datastore.get(dsIdentifiers, function(err, entities) {
             if (err) {
                 callback(null, err);
@@ -98,7 +98,7 @@ var multiUidMetaFromUid = function(type, uids, callback) {
 };
 
 var nextUid = function(txn, kind, callback) {
-    var uidSequenceKey = datastore.key(["uid_sequence", "kind:"+kind]);
+    var uidSequenceKey = datastore.key({namespace:config.namespace,path:["uid_sequence", "kind:"+kind]});
 
     txn.get(uidSequenceKey, function(err, entity) {
         if (err) {
@@ -150,7 +150,7 @@ var assignUidIfNecessary = function(type, name, callback) {
                 return;
             }
 
-            var byNameKey = datastore.key([kind, "name:"+name]);
+            var byNameKey = datastore.key({namespace:config.namespace,path:[kind, "name:"+name]});
 
             txn.get(byNameKey, function(err, entity) {
                 if (err) {
@@ -169,7 +169,7 @@ var assignUidIfNecessary = function(type, name, callback) {
                     }
 
                     var uidString = lpad(uid.toString(16), '0', config[type+"_uid_bytes"]*2);
-                    var byIdKey = datastore.key([kind, "id:"+uidString]);
+                    var byIdKey = datastore.key({namespace:config.namespace,path:[kind, "id:"+uidString]});
 
                     var byNameEntity = {
                         key: byNameKey,
@@ -208,17 +208,17 @@ var suggest = function(entity, prefix, max, callback) {
         prefix = "";
     }
     var query = datastore
-        .createQuery(entity);
+        .createQuery(config.namespace, entity);
     if (prefix !== "") {
         query = query
-            .filter("__key__", ">=", datastore.key([entity, "name:"+prefix]))
+            .filter("__key__", ">=", datastore.key({namespace:config.namespace,path:[entity, "name:"+prefix]}))
             // todo: fudgeroo!! would be better to increment the last character by one
-            .filter("__key__", "<=", datastore.key([entity, "name:"+prefix+"zzzzzzzzzzzzzzzzzz"]))
+            .filter("__key__", "<=", datastore.key({namespace:config.namespace,path:[entity, "name:"+prefix+"zzzzzzzzzzzzzzzzzz"]}))
     }
     else {
         // exclude id: keys
         query = query
-            .filter("__key__", ">=", datastore.key([entity, "name:"]))
+            .filter("__key__", ">=", datastore.key({namespace:config.namespace,path:[entity, "name:"]}))
     }
     query = query.order("__key__");
 
@@ -388,7 +388,7 @@ backend.storePoints = function(points, storePointsCallback) {
                     else {
                         var rowId = dataRowKey(metricUid, hour, tagUidString);
                     }
-                    var rowKey = datastore.key(["data", rowId]);
+                    var rowKey = datastore.key({namespace:config.namespace,path:["data", rowId]});
                     var row = undefined;
 
                     var processCommitResult = function(err) {
@@ -493,9 +493,9 @@ backend.searchLookupImpl = function(query, limit, useMeta, callback) {
         var endRowKey = metricUid != null ? dataRowKey(metricUid.uid, Math.pow(256, config.metric_uid_bytes)-1, "") : dataRowKey(lpad("", "z", config.metric_uid_bytes*2), 0, "");
 
         var query = datastore
-            .createQuery("data")
-            .filter("__key__", ">=", datastore.key(["data", startRowKey]))
-            .filter("__key__", "<=", datastore.key(["data", endRowKey]));
+            .createQuery(config.namespace, "data")
+            .filter("__key__", ">=", datastore.key({namespace:config.namespace,path:["data", startRowKey]}))
+            .filter("__key__", "<=", datastore.key({namespace:config.namespace,path:["data", endRowKey]}));
         if (limit) {
             query = query.limit(limit);
         }
@@ -598,11 +598,12 @@ backend.searchLookupImpl = function(query, limit, useMeta, callback) {
                         var rowsForDistinctTsuids = [];
 
                         for (var r=0; r<entities.length; r++) {
+                        for (var r=0; r<entities.length; r++) {
                             var row = entities[r];
 
                             var key = row[Datastore.KEY].name;
                             if (config.verbose) {
-                                console.log("ROW KEY: "+key);
+                                console.log("ROW KEY: "+key+" (Namespace: "+row[Datastore.KEY].namespace+")");
                             }
 
                             var decomposedKey = decomposeRowKey(key);
@@ -698,7 +699,7 @@ backend.storeAnnotations = function(annotations, storeAnnotationsCallback) {
                 }
 
                 var rowId = dataRowKey(metricUid, hour, tagUidString);
-                var rowKey = datastore.key(["ann", rowId]);
+                var rowKey = datastore.key({namespace:config.namespace,path:["ann", rowId]});
                 var row = undefined;
 
                 var processCommitResult = function(err) {
@@ -779,7 +780,7 @@ backend.performAnnotationsQueries = function(startTime, endTime, downsampleSecon
         for (var h=startHour; h<=endHour; h++) {
             var metricUid = participatingTimeSeries[t].metric_uid;
             var keyId = dataRowKey(metricUid, h, participatingTimeSeries[t].tsuid.substring(metricUid.length));
-            allKeys.push(datastore.key(["ann", keyId]));
+            allKeys.push(datastore.key({namespace:config.namespace,path:["ann", keyId]}));
         }
     }
 
@@ -956,8 +957,8 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
             }
         };
 
-        var startKey = datastore.key(["data", dataRowKey(metricUid.uid, startHour, "")]);
-        var endKey = datastore.key(["data", dataRowKey(metricUid.uid, endHour+1, "")]);
+        var startKey = datastore.key({namespace:config.namespace,path:["data", dataRowKey(metricUid.uid, startHour, "")]});
+        var endKey = datastore.key({namespace:config.namespace,path:["data", dataRowKey(metricUid.uid, endHour+1, "")]});
         if (config.verbose) {
             console.log("Finding data rows where " + JSON.stringify(startKey) + " <= __key__ < " + JSON.stringify(endKey));
         }
@@ -1061,7 +1062,7 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
                 console.log("Running query with start cursor: " + cursor);
             }
             var query = datastore
-                .createQuery("data")
+                .createQuery(config.namespace, "data")
                 .filter("__key__", ">=", startKey)
                 .filter("__key__", "<", endKey)
                 .order("__key__");
@@ -1095,7 +1096,7 @@ backend.performBackendQueries = function(startTime, endTime, downsample, metric,
 
                                 var key = row[Datastore.KEY].name;
                                 if (config.verbose) {
-                                    console.log("ROW KEY: "+key);
+                                    console.log("ROW KEY: "+key+" (Namespace: "+row[Datastore.KEY].namespace+")");
                                 }
 
                                 var decomposedKey = decomposeRowKey(key);
@@ -1193,7 +1194,8 @@ var setupBackend = function(incomingConfig) {
         tagk_uid_bytes: 3,
         tagv_uid_bytes: 3,
         projectId: 'opentsdb-cloud',
-        dataStoreKeyFile: null
+        dataStoreKeyFile: null,
+        namespace: null
     };
 
     applyOverrides(incomingConfig, conf);

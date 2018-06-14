@@ -5,13 +5,14 @@ var request = require('supertest')
 describe('NodeTSDB GCE Integration Testing', function () {
     var projectId = process.env.GCE_PROJECT_ID || 'nodetsdb-gce-integration-testing';
     var keyFile = process.env.GCE_KEY_FILE || null;
+    var namespace = "node-gce-integration-test"
     var usingEmulator = process.env.DATASTORE_EMULATOR_HOST && true;
     var emulator, server, nodetsdb;
     var perTestTimeout = usingEmulator ? 20000 : 120000;
 
     var deleteEntity = function(datastore, entity, callback) {
         console.log("Selecting all keys for entity "+entity);
-        var keysOnlyQuery = datastore.createQuery(entity).select('__key__');
+        var keysOnlyQuery = datastore.createQuery(namespace, entity).select('__key__');
 
         datastore.runQuery(keysOnlyQuery, function(err, entities) {
             var keys = entities.map(function(entity) {
@@ -67,7 +68,7 @@ describe('NodeTSDB GCE Integration Testing', function () {
 
         var runServer = nodetsdb.__get__("runServer");
 
-        server = runServer({port:4242,verbose:true,projectId:projectId,dataStoreKeyFile:keyFile});
+        server = runServer({port:4242,verbose:true,projectId:projectId,dataStoreKeyFile:keyFile,namespace:namespace});
 
         var datastore = nodetsdb.__get__("datastore");
         deleteExistingData(datastore, function(err) {
