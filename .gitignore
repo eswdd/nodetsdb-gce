@@ -37,3 +37,6 @@ node_modules
 
 # Optional REPL history
 .node_repl_history
+
+# Creds files for testing
+*-creds.json
