@@ -24,13 +24,17 @@
   "scripts": {
     "start": "node faketsdb.js",
     "test": "mocha --require mocha-steps -R spec test/*",
-    "test-coverage": "istanbul cover ./node_modules/mocha/bin/_mocha -- --require mocha-steps -R spec test/*"
+    "test-coverage": "istanbul cover ./node_modules/mocha/bin/_mocha -- --require mocha-steps -R spec test/*",
+    "snyk-protect": "snyk protect",
+    "prepare": "npm run snyk-protect"
   },
   "dependencies": {
     "@google-cloud/datastore": "^1.4.0",
     "express": "^4.16.2",
     "google-datastore-emulator": "^1.5.0",
-    "nodetsdb-api": "^0.2.4"
+    "nodetsdb-api": "^0.2.4",
+    "snyk": "^1.316.1"
   },
-  "main": "index.js"
+  "main": "index.js",
+  "snyk": true
 }
