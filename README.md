@@ -3,6 +3,7 @@
 [![GPL License][license-image]][license-url]
 [![Build Status][travis-image]][travis-url]
 [![Coverage][coverage-image]][coverage-url]
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-gce.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-gce?ref=badge_shield)
 
 # nodetsdb-gce
 
@@ -34,3 +35,5 @@ nodetsdb-gce is freely distributable under the terms of the [GPL license](https:
 
 [coverage-url]: https://coveralls.io/r/eswdd/nodetsdb-gce
 [coverage-image]: https://coveralls.io/repos/github/eswdd/nodetsdb-gce/badge.svg
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-gce.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-gce?ref=badge_large)
