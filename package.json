@@ -33,7 +33,7 @@
     "express": "^4.16.2",
     "google-datastore-emulator": "^1.5.0",
     "nodetsdb-api": "^0.2.4",
-    "snyk": "^1.518.0"
+    "snyk": "^1.611.0"
   },
   "main": "index.js",
   "snyk": true
