@@ -16,7 +16,7 @@
     "mocha-steps": "^1.1.0",
     "protractor": "~3.1.1",
     "rewire": "^6.0.0",
-    "shelljs": "^0.6.0",
+    "shelljs": "^0.8.5",
     "supertest": "^1.2.0",
     "tmp": "0.0.28",
     "util": "^0.10.3"
