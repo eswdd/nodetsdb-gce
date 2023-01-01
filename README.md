@@ -30,7 +30,7 @@ nodetsdb-gce is freely distributable under the terms of the [GPL license](https:
 [npm-version-image]: http://img.shields.io/npm/v/nodetsdb-gce.svg?style=flat
 [npm-downloads-image]: http://img.shields.io/npm/dm/nodetsdb-gce.svg?style=flat
 
-[travis-url]: http://travis-ci.org/eswdd/nodetsdb-gce
+[travis-url]: http://travis-ci.com/eswdd/nodetsdb-gce
 [travis-image]: http://img.shields.io/travis/eswdd/nodetsdb-gce/master.svg?style=flat
 
 [coverage-url]: https://coveralls.io/r/eswdd/nodetsdb-gce
