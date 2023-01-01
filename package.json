@@ -25,7 +25,7 @@
     "start": "node faketsdb.js",
     "test": "mocha --require mocha-steps -R spec test/*",
     "test-coverage": "istanbul cover ./node_modules/mocha/bin/_mocha -- --require mocha-steps -R spec test/*",
-    "snyk-protect": "snyk protect",
+    "snyk-protect": "snyk-protect",
     "prepare": "npm run snyk-protect"
   },
   "dependencies": {
@@ -33,7 +33,7 @@
     "express": "^4.18.2",
     "google-datastore-emulator": "^1.5.0",
     "nodetsdb-api": "^0.3.0",
-    "snyk": "^1.518.0"
+    "@snyk/protect": "latest"
   },
   "main": "index.js",
   "snyk": true

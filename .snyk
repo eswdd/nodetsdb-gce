@@ -1,5 +1,5 @@
 # Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
-version: v1.14.1
+version: v1.25.0
 ignore: {}
 # patches apply the minimum changes required to fix a vulnerability
 patch:
@@ -32,3 +32,66 @@ patch:
         patched: '2020-05-01T04:17:39.394Z'
     - google-datastore-emulator > @google-cloud/datastore > @google-cloud/common > split-array-stream > async > lodash:
         patched: '2020-05-01T04:17:39.394Z'
+  SNYK-JS-AXIOS-174505:
+    - '@google-cloud/datastore > @google-cloud/common > google-auto-auth > gcp-metadata > axios':
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > @google-cloud/common > google-auto-auth > google-auth-library > axios':
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > @google-cloud/common > google-auto-auth > gcp-metadata > axios:
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > @google-cloud/common > google-auto-auth > google-auth-library > gtoken > axios':
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > @google-cloud/common > google-auto-auth > google-auth-library > axios:
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > @google-cloud/common > google-auto-auth > google-auth-library > gtoken > axios:
+        patched: '2023-01-01T21:40:46.860Z'
+  'npm:extend:20180424':
+    - '@google-cloud/datastore > extend':
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > @google-cloud/common > extend':
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > google-gax > extend':
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > extend:
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > @google-cloud/common > extend:
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > google-gax > extend:
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > @google-cloud/common > google-auto-auth > gcp-metadata > extend':
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > @google-cloud/common > google-auto-auth > request > extend':
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > @google-cloud/common > google-auto-auth > gcp-metadata > extend:
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > @google-cloud/common > google-auto-auth > request > extend:
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > google-gax > grpc > node-pre-gyp > request > extend':
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > google-gax > grpc > node-pre-gyp > request > extend:
+        patched: '2023-01-01T21:40:46.860Z'
+  'npm:hoek:20180212':
+    - '@google-cloud/datastore > google-gax > grpc > node-pre-gyp > hawk > hoek':
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > google-gax > grpc > node-pre-gyp > hawk > boom > hoek':
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > google-gax > grpc > node-pre-gyp > hawk > sntp > hoek':
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > google-gax > grpc > node-pre-gyp > hawk > hoek:
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > google-gax > grpc > node-pre-gyp > hawk > boom > hoek:
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > google-gax > grpc > node-pre-gyp > hawk > sntp > hoek:
+        patched: '2023-01-01T21:40:46.860Z'
+  'npm:stringstream:20180511':
+    - '@google-cloud/datastore > @google-cloud/common > google-auto-auth > request > stringstream':
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > @google-cloud/common > google-auto-auth > request > stringstream:
+        patched: '2023-01-01T21:40:46.860Z'
+    - '@google-cloud/datastore > google-gax > grpc > node-pre-gyp > request > stringstream':
+        patched: '2023-01-01T21:40:46.860Z'
+    - google-datastore-emulator > @google-cloud/datastore > google-gax > grpc > node-pre-gyp > request > stringstream:
+        patched: '2023-01-01T21:40:46.860Z'
+  SNYK-JS-TREEKILL-536781:
+    - google-datastore-emulator > tree-kill:
+        patched: '2023-01-01T21:40:46.860Z'
