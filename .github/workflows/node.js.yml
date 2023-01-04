@@ -27,7 +27,7 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
-    - name: gcloud uninstall
+    - name: default gcloud uninstall
       run: sudo apt-get remove --purge google-cloud-sdk
 
     - name: gcloud install
@@ -39,7 +39,7 @@ jobs:
       run: |
         source /home/runner/google-cloud-sdk/path.bash.inc
         gcloud components install --quiet cloud-datastore-emulator
-        gcloud beta emulators datastore start --no-store-on-disk --host-port localhost:8081 &
+        gcloud beta emulators datastore start --quiet --no-store-on-disk --host-port localhost:8081 &
 
     - run: npm ci
     - run: npm run build --if-present
