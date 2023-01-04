@@ -37,7 +37,7 @@ jobs:
         # gcloud command
         source /home/runner/google-cloud-sdk/path.bash.inc
         # Install the emulator
-        gcloud components install cloud-datastore-emulator
+        gcloud components install cloud-datastore-emulator --quiet
         # Start the datastore emulator
         gcloud beta emulators datastore start --no-store-on-disk --host-port localhost:8081 &
     - run: npm ci
