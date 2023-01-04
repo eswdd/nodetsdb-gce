@@ -34,6 +34,8 @@ jobs:
         # gcloud install
         curl https://sdk.cloud.google.com > install.sh
         sudo bash install.sh --disable-prompts
+        # gcloud command
+        source /root/google-cloud-sdk/path.bash.inc
         # Install the emulator
         gcloud components install cloud-datastore-emulator
         # Start the datastore emulator
