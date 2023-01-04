@@ -9,9 +9,6 @@ on:
   pull_request:
     branches: [ master ]
 
-env:
-  DATASTORE_EMULATOR_HOST: localhost:8081
-
 jobs:
   build:
 
@@ -29,17 +26,19 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+    # gcloud uninstall
+    - run: sudo apt-get remove --purge google-cloud-sdk
+    # gcloud install
     - run: |
-        sudo apt-get remove --purge google-cloud-sdk
-        # gcloud install
         curl https://sdk.cloud.google.com > install.sh
         bash install.sh --disable-prompts
-        # gcloud command
+    # install & start emulator
+    - run: |
         source /home/runner/google-cloud-sdk/path.bash.inc
-        # Install the emulator
         gcloud components install cloud-datastore-emulator --quiet
-        # Start the datastore emulator
         gcloud beta emulators datastore start --no-store-on-disk --host-port localhost:8081 &
     - run: npm ci
     - run: npm run build --if-present
     - run: npm test
+      env:
+        DATASTORE_EMULATOR_HOST: localhost:8081
