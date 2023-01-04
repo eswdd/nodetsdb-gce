@@ -44,6 +44,8 @@ jobs:
 
     - run: npm ci
     - run: npm run test-coverage
+      env:
+        DATASTORE_EMULATOR_HOST: localhost:8081
     - run: ./node_modules/nyc/bin/nyc.js report --reporter=lcov
     - name: Coveralls
       uses: coverallsapp/github-action@v1.1.0
