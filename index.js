@@ -1,6 +1,6 @@
 var express = require('express');
 var api = require('nodetsdb-api');
-var Datastore = require('@google-cloud/datastore');
+const {Datastore} = require('@google-cloud/datastore');
 // actual datastore
 var datastore;
 
