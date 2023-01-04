@@ -33,7 +33,7 @@ jobs:
         sudo apt-get remove --purge google-cloud-sdk
         # gcloud install
         curl https://sdk.cloud.google.com > install.sh
-        sudo bash install.sh --disable-prompts
+        bash install.sh --disable-prompts
         # gcloud command
         source /root/google-cloud-sdk/path.bash.inc
         # Install the emulator
