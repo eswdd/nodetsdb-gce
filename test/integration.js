@@ -7,6 +7,12 @@ describe('NodeTSDB GCE Integration Testing', function () {
     var keyFile = process.env.GCE_KEY_FILE || null;
     var namespace = "node-gce-integration-test"
     var usingEmulator = process.env.DATASTORE_EMULATOR_HOST && true;
+    if (usingEmulator) {
+        console.log("Detected use of datastore emulator so reducing test timeout to 20s.");
+    }
+    else {
+        console.log("Datastore emulator not detected.")
+    }
     var emulator, server, nodetsdb;
     var perTestTimeout = usingEmulator ? 20000 : 120000;
 
