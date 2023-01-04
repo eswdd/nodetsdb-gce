@@ -26,20 +26,22 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    # Create environment variable for correct distribution
-    - run: export CLOUD_SDK_REPO="cloud-sdk-$(lsb_release -c -s)"
-    # Add the Cloud SDK distribution URI as a package source
-    - run: echo "deb http://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-    # Import the Google Cloud Platform public key
-    - run: curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-    # Update the package list and install the Cloud SDK
-    - run: sudo apt-get update && sudo apt-get install google-cloud-sdk
-    # Install the emulator
-    - run: sudo apt-get install google-cloud-sdk-datastore-emulator
-    # Start the datastore emulator
-    - run: gcloud beta emulators datastore start --no-store-on-disk --host-port localhost:8081 &
-    # Make sure we can find it..
-    - run: export DATASTORE_EMULATOR_HOST=localhost:8081
+
+    - name: default gcloud uninstall
+      run: sudo apt-get remove --purge google-cloud-sdk
+
+    - name: gcloud install
+      run: |
+        curl https://sdk.cloud.google.com > install.sh
+        bash install.sh --disable-prompts
+
+    - name: install & start emulator
+      run: |
+        source /home/runner/google-cloud-sdk/path.bash.inc
+        gcloud components install --quiet cloud-datastore-emulator
+        gcloud components install --quiet beta
+        gcloud beta emulators datastore start --project nodetsdb-gce-integration-testing --no-store-on-disk --host-port localhost:8081 &
+
     - run: npm ci
     - run: npm run test-coverage
     - run: ./node_modules/nyc/bin/nyc.js report --reporter=lcov
