@@ -41,7 +41,7 @@ jobs:
         # Update the package list and install the Cloud SDK
         #sudo apt-get update && sudo apt-get install google-cloud-sdk
         # Install the emulator
-        gcloud components install cloud-datastore-emulator
+        sudo snap install google-cloud-sdk-datastore-emulator --classic
         # Start the datastore emulator
         gcloud beta emulators datastore start --no-store-on-disk --host-port localhost:8081 &
     - run: npm ci
