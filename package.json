@@ -28,7 +28,7 @@
     "test-coverage": "nyc mocha --require mocha-steps -R spec test/*"
   },
   "dependencies": {
-    "@google-cloud/datastore": "^6.6.2",
+    "@google-cloud/datastore": "^7.5.1",
     "express": "^4.18.2",
     "google-datastore-emulator": "^4.0.0",
     "nodetsdb-api": "^0.3.1"
