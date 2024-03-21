@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@google-cloud/datastore": "^6.6.2",
-    "express": "^4.18.2",
+    "express": "^4.18.3",
     "google-datastore-emulator": "^4.0.0",
     "nodetsdb-api": "^0.3.1"
   },
